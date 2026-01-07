@@ -1,0 +1,15 @@
+<h3 *ngIf="films.length > 0">Results ({{ films.length }})</h3>
+<p *ngIf="films.length === 0">No results yet.</p>
+
+<ul *ngIf="films.length > 0">
+  <li *ngFor="let f of films">
+    <strong>{{ f.title }}</strong>
+    <span *ngIf="f.year"> ({{ f.year }})</span>
+    <div>
+      <span *ngIf="f.country">Country: {{ f.country }} </span>
+      <span *ngIf="f.language">Language: {{ f.language }} </span>
+      <span *ngIf="f.director">Director: {{ f.director }} </span>
+      <span *ngIf="f.producer">Producer: {{ f.producer }} </span>
+    </div>
+  </li>
+</ul>

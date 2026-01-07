@@ -1,0 +1,149 @@
+<h2>Film Search</h2>
+
+<form [formGroup]="form" (ngSubmit)="onSearch()">
+  <!-- Basic search -->
+  <div>
+    <label>Title</label>
+    <input formControlName="title" />
+  </div>
+
+  <div>
+    <label>Country</label>
+    <input formControlName="country" />
+  </div>
+
+  <div>
+    <label>Language</label>
+    <input formControlName="language" />
+  </div>
+
+  <div>
+    <label>Director</label>
+    <input formControlName="director" />
+  </div>
+
+  <div>
+    <label>Producer</label>
+    <input formControlName="producer" />
+  </div>
+
+  <hr />
+
+  <!-- Budget range -->
+  <div>
+    <label><strong>Budget</strong></label>
+
+    <div>
+      <label>Min: {{ form.get('budgetMin')?.value ?? '—' }}</label>
+      <input
+        type="range"
+        min="0"
+        max="500000000"
+        step="1000000"
+        formControlName="budgetMin"
+      />
+    </div>
+
+    <div>
+      <label>Max: {{ form.get('budgetMax')?.value ?? '—' }}</label>
+      <input
+        type="range"
+        min="0"
+        max="500000000"
+        step="1000000"
+        formControlName="budgetMax"
+      />
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- Gross range -->
+  <div>
+    <label><strong>Gross</strong></label>
+
+    <div>
+      <label>Min: {{ form.get('grossMin')?.value ?? '—' }}</label>
+      <input
+        type="range"
+        min="0"
+        max="500000000"
+        step="1000000"
+        formControlName="grossMin"
+      />
+    </div>
+
+    <div>
+      <label>Max: {{ form.get('grossMax')?.value ?? '—' }}</label>
+      <input
+        type="range"
+        min="0"
+        max="500000000"
+        step="1000000"
+        formControlName="grossMax"
+      />
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- Runtime range (minutes) -->
+  <div>
+    <label><strong>Runtime (minutes)</strong></label>
+
+    <div>
+      <label>Min: {{ form.get('runtimeMin')?.value ?? '—' }}</label>
+      <input
+        type="range"
+        min="0"
+        max="400"
+        step="5"
+        formControlName="runtimeMin"
+      />
+    </div>
+
+    <div>
+      <label>Max: {{ form.get('runtimeMax')?.value ?? '—' }}</label>
+      <input
+        type="range"
+        min="0"
+        max="400"
+        step="5"
+        formControlName="runtimeMax"
+      />
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- Additional fields -->
+  <div>
+    <label>Studio</label>
+    <input formControlName="studio" />
+  </div>
+
+  <div>
+    <label>Music Composer</label>
+    <input formControlName="musicComposer" />
+  </div>
+
+  <div>
+    <label>Distributor</label>
+    <input formControlName="distributor" />
+  </div>
+
+  <div>
+    <label>Editor</label>
+    <input formControlName="editor" />
+  </div>
+
+  <hr />
+
+  <button type="submit">Search</button>
+  <button type="button" (click)="onReset()">Reset</button>
+</form>
+
+<div *ngIf="loading">Loading…</div>
+<div *ngIf="error" style="color:red">{{ error }}</div>
+
+<app-film-results [films]="results"></app-film-results>
