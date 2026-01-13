@@ -1,8 +1,8 @@
 package fr.insalyon.websem.service;
 
 import fr.insalyon.websem.model.Movie;
-import fr.insalyon.websem.model.ActorGraphNode;
-import fr.insalyon.websem.model.ProducerGraphNode;
+//import fr.insalyon.websem.model.ActorGraphNode;
+//import fr.insalyon.websem.model.ProducerGraphNode;
 import org.apache.jena.query.*;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +39,7 @@ public class FilmExplorationSPARQLService {
               ?movie a dbo:Film .
               ?movie rdfs:label ?title .
               FILTER(LANG(?title) = "en")
-              FILTER(REGEX(?title, "Inception", "i"))
+              FILTER(REGEX(?title, "%s", "i"))
               OPTIONAL { ?movie dbo:description ?description . FILTER(LANG(?description) = "en") }
               OPTIONAL { ?movie dbo:releaseDate ?date }
               OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
@@ -229,13 +229,13 @@ public class FilmExplorationSPARQLService {
         Movie movie = new Movie();
         movie.setUri(getStringValue(solution, "movie"));
         movie.setTitle(getStringValue(solution, "title"));
-        movie.setAbstract_(truncateText(getStringValue(solution, "abstract"), 300));
+        movie.setDescription(truncateText(getStringValue(solution, "description"), 300));
         movie.setReleaseDate(getStringValue(solution, "date"));
         movie.setDirector(getStringValue(solution, "director"));
         movie.setThumbnail(getStringValue(solution, "thumbnail"));
         return movie;
     }
-
+/* 
     private ActorGraphNode mapSolutionToActorNode(QuerySolution solution) {
         ActorGraphNode node = new ActorGraphNode();
         node.setActor(getStringValue(solution, "actor"));
@@ -252,5 +252,5 @@ public class FilmExplorationSPARQLService {
         node.setOtherTitle(getStringValue(solution, "otherTitle"));
         node.setReleaseDate(getStringValue(solution, "releaseDate"));
         return node;
-    }
+    }*/
 }

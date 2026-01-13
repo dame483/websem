@@ -38,7 +38,7 @@ class FilmExplorationSPARQLServiceTest {
         assertNotNull(first.getUri(), "L'URI du film doit être présente");
 
         // Champs optionnels
-        System.out.println("Résumé : " + first.getAbstract_());
+        System.out.println("Description : " + first.getDescription());
         System.out.println("Réalisateur : " + first.getDirector());
         
     }

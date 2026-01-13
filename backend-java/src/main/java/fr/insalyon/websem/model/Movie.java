@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 public class Movie {
     private String uri;
     private String title;
-    private String abstract_;
+    private String description;
     private String releaseDate;
     private String director;
     private String thumbnail;
