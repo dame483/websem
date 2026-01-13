@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 
-app = FastAPI()
+from app.api.sparql_router import router
 
-@app.get("/")
-def read_root() :
-    return {"Hello": "World"}
+app = FastAPI()
+app.include_router(router, prefix="/api/sparql")
+#@app.get("/")
+#def read_root() :
+ #   return {"Hello": "World"}
