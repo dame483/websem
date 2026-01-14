@@ -2,8 +2,8 @@ services:
   backend-python:
     build: ./backend-python
     container_name: backend-python
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - ./backend-python/.env
     ports:
       - "8000:8000"
     restart: unless-stopped
