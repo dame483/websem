@@ -8,18 +8,17 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class FilmExplorationSPARQLServiceTest {
+class MovieExplorationSPARQLServiceTest {
 
-    private FilmExplorationSPARQLService service;
+    private MovieExplorationSPARQLService service;
 
     @BeforeEach
     void setUp() {
-        service = new FilmExplorationSPARQLService();
+        service = new MovieExplorationSPARQLService();
     }
 
     @Test
     void testConnexionDBPedia() {
-        // On exécute une requête minimale pour voir si DBpedia répond
         List<Movie> movies = service.searchMovies("Matrix");
         assertNotNull(movies, "La liste ne doit pas être null");
     }
