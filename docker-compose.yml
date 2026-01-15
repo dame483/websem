@@ -9,11 +9,11 @@ services:
     restart: unless-stopped
 
   backend-java:
-    build: ./backend-java
-    container_name: backend-java
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    restart: unless-stopped
 
   frontend:
     build: ./frontend-react
