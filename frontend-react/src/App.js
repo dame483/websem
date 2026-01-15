@@ -99,8 +99,8 @@ function App() {
                   </p>
                 )}
                 
-                {movie.abstract_ && (
-                  <p className="movie-abstract">{movie.abstract_}</p>
+                {movie.description_ && (
+                  <p className="movie-description">{movie.description}</p>
                 )}
               </div>
             </div>
