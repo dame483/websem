@@ -88,6 +88,8 @@ public class MovieExplorationSPARQLService {
 
 
     // Graphe des acteurs
+
+    
     
     // Films récents d’un réalisateur (director)
     public List<Movie> getRecentMoviesByDirector(String directorUri) {
