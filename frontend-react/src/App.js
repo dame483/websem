@@ -87,12 +87,6 @@ function App() {
               <div className="movie-content">
                 <h2 className="movie-title">{movie.title || extractMovieName(movie.uri)}</h2>
                 
-                {movie.releaseDate && (
-                  <p className="movie-date">
-                    {new Date(movie.releaseDate).getFullYear()}
-                  </p>
-                )}
-                
                 {movie.director && (
                   <p className="movie-director">
                     Réalisé par {movie.director}

@@ -13,6 +13,7 @@ public class Movie {
     private String description;
     private String releaseDate;
     private String director;
+    private String directorUri;
     private String thumbnail;
     private String country;
     private String language;

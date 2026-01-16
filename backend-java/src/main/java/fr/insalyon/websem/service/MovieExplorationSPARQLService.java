@@ -33,8 +33,17 @@ public class MovieExplorationSPARQLService {
         PREFIX dbo: <http://dbpedia.org/ontology/>
         PREFIX dbp: <http://dbpedia.org/property/>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-        SELECT ?movie ?title ?description ?thumbnail ?runtime ?gross ?budget
+        SELECT ?movie 
+               (SAMPLE(?titleLabel) AS ?title)
+               (SAMPLE(?descriptionLabel) AS ?description)
+               (SAMPLE(?thumbnailLabel) AS ?thumbnail)
+               (SAMPLE(?runtimeLabel) AS ?runtime)
+               (SAMPLE(?grossLabel) AS ?gross)
+               (SAMPLE(?budgetLabel) AS ?budget)
+               (MAX(?extracted_year) AS ?year)
+               (GROUP_CONCAT(DISTINCT STR(?directorRes); separator=", ") AS ?directorUris)
                (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
                (GROUP_CONCAT(DISTINCT ?producer; separator=", ") AS ?producers)
                (GROUP_CONCAT(DISTINCT ?editor; separator=", ") AS ?editors)
@@ -45,31 +54,42 @@ public class MovieExplorationSPARQLService {
                (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
         WHERE {
           ?movie a dbo:Film .
-          ?movie rdfs:label ?title .
-          FILTER(LANG(?title) = "en")
-          FILTER(REGEX(?title, "%s", "i"))   
+          ?movie rdfs:label ?titleLabel .
+          FILTER(LANG(?titleLabel) = "en")
+          FILTER(REGEX(?titleLabel, "%s", "i"))   
 
-          OPTIONAL { ?movie dbo:description ?description . FILTER(LANG(?description) = "en") }
-          OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
+          OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel) = "en") }
+           
+            OPTIONAL { 
+                SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
+                WHERE {
+                ?movie dbo:description ?desc .
+                FILTER(REGEX(?desc, "^[0-9]{4}"))
+                }
+                GROUP BY ?movie
+            }
+          OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director .FILTER(LANG(?director) = "en")}
           OPTIONAL { ?movie dbo:producer ?producerRes . ?producerRes rdfs:label ?producer . FILTER(LANG(?producer) = "en") }
           OPTIONAL { ?movie dbo:editing ?editorRes . ?editorRes rdfs:label ?editor . FILTER(LANG(?editor) = "en") }
           OPTIONAL { ?movie dbo:studio ?studio . }
           OPTIONAL { ?movie dbo:musicComposer ?musicComposerRes . ?musicComposerRes rdfs:label ?musicComposer . FILTER(LANG(?musicComposer) = "en") }
-          OPTIONAL { ?movie dbo:distributor ?distributor . }
+          OPTIONAL { ?movie dbo:distributor ?distributorRes . ?distributorRes rdfs:label ?distributor . FILTER(LANG(?distributor) = "en") }
           OPTIONAL { ?movie dbp:country ?country . }
           OPTIONAL { ?movie dbp:language ?language . }
-          OPTIONAL { ?movie dbo:runtime ?runtime . }
-          OPTIONAL { ?movie dbo:gross ?gross . FILTER(DATATYPE(?gross) = <http://dbpedia.org/datatype/usDollar>) }
-          OPTIONAL { ?movie dbo:budget ?budget . FILTER(DATATYPE(?budget) = <http://dbpedia.org/datatype/usDollar>) }
-          OPTIONAL { ?movie dbo:thumbnail ?thumbnail }
+          OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
+          OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
+          OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
+          OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
         }
-        GROUP BY ?movie ?title ?description ?thumbnail ?runtime ?gross ?budget
+        GROUP BY ?movie 
         LIMIT 20
     """, escapeString(movieName));
 }
 
 
     // Graphe des acteurs
+
+    
     
     // Films récents d’un réalisateur (director)
     public List<Movie> getRecentMoviesByDirector(String directorUri) {
@@ -91,18 +111,18 @@ public class MovieExplorationSPARQLService {
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-            SELECT ?movie ?title (MAX(?year) AS ?year) (SAMPLE(?description) AS ?description)
+            SELECT ?movie (SAMPLE(?titleLabel) AS ?title) (MAX(?yearLabel) AS ?year) (SAMPLE(?descriptionLabel) AS ?description)
             WHERE {
             ?movie dbo:director <%s> .
             ?movie a dbo:Film .
-            ?movie rdfs:label ?title .
-            ?movie dbo:description ?description .
-
-            FILTER(REGEX(?description, "^[0-9]{4}"))
-
-            BIND(xsd:integer(REPLACE(STR(?description), "^([0-9]{4}).*", "$1")) AS ?year)
+            ?movie rdfs:label ?titleLabel .
+            ?movie dbo:description ?descriptionLabel .
+            
+            FILTER(REGEX(?descriptionLabel, "^[0-9]{4}"))
+            
+            BIND(xsd:integer(REPLACE(STR(?descriptionLabel), "^([0-9]{4}).*", "$1")) AS ?yearLabel)
             }
-            GROUP BY ?movie ?title
+            GROUP BY ?movie
             ORDER BY DESC(?year)
             LIMIT 5
         """, directorUri);
@@ -150,15 +170,17 @@ public class MovieExplorationSPARQLService {
         return text.substring(0, maxLength) + "...";
     }
 
-    // TODO : ajouter des methodes de nettoyages pour les autres attributs, gross, budget... et quand il y 
+    // TODO : ajouter des methodes utilitaires de nettoyages pour les autres attributs, gross, budget... et quand il y 
     // a une liste de valeurs avec virgule (soit changer la nature de l'attribut de Movie et consrtuire une methode qui récupère les infos entre virgule)
+    // voir le test pour comprendre l'affichage 
    private Movie mapSolutionToMovie(QuerySolution solution) {
         Movie movie = new Movie();
         movie.setUri(getStringValue(solution, "movie"));
         movie.setTitle(getStringValue(solution, "title"));
         movie.setDescription(truncateText(getStringValue(solution, "description"), 300));
-        //movie.setReleaseDate(getStringValue(solution, "year")); // année extraite
+        movie.setReleaseDate(getStringValue(solution, "year")); // année extraite
         movie.setDirector(getStringValue(solution, "directors"));
+        movie.setDirectorUri(getStringValue(solution, "directorUris"));
         movie.setProducer(getStringValue(solution, "producers"));
         movie.setEditor(getStringValue(solution, "editors"));
         movie.setStudio(getStringValue(solution, "studios"));
