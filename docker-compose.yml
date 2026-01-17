@@ -2,19 +2,22 @@ services:
   backend-python:
     build: ./backend-python
     container_name: backend-python
+    env_file:
+      - ./backend-python/.env
     ports:
       - "8000:8000"
     restart: unless-stopped
 
   backend-java:
-    build: ./backend-java
-    container_name: backend-java
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    restart: unless-stopped
+
   frontend:
     build: ./frontend-react
     container_name: frontend-react
     ports:
       - "3000:80"
-    restart: unless-stopped  
+    restart: unless-stopped
