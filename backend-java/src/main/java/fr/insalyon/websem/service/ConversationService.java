@@ -36,7 +36,7 @@ public class ConversationService {
                 
                 if (results.isEmpty()) {
                     String aiAnswer = generateAIAnswer(question);
-                    response.setResults(new ArrayList<>())
+                    response.setResults(new ArrayList<>());
                     response.setAiAnswer(aiAnswer);
                 } else {
                     response.setResults(results);
