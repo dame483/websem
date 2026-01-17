@@ -63,6 +63,17 @@ Le backend sera accessible à l’adresse :
 
 ---
 
+## Configuration de la variable d'environnement
+
+Il faut créer un fichier .env dans le repo backend-python dans lequel vous mettez la clé d'api pour interroger l'IA. 
+
+```bash
+OPENAI_API_KEY="xxxx"
+```
+
+---
+
+
 ## Lancement du projet complet avec Docker (recommandé)
 
 Ce mode permet de lancer **l’ensemble du projet** (backend Java, backend Python et frontend React) en une seule commande.
