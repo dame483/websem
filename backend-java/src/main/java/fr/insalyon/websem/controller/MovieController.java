@@ -1,5 +1,6 @@
 package fr.insalyon.websem.controller;
 
+import fr.insalyon.websem.dto.MovieFilterRequest;
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.service.MovieExplorationSPARQLService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,25 @@ public class MovieController {
         }
         
         List<Movie> movies = MovieExplorationSPARQLService.searchMovies(query);
+        return ResponseEntity.ok(movies);
+    }
+
+    @PostMapping("/search-advanced")
+    public ResponseEntity<List<Movie>> searchMoviesAdvanced(@RequestParam String title, @RequestBody MovieFilterRequest filters) {
+        if (title == null || title.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        List<Movie> movies = MovieExplorationSPARQLService.searchMoviesWithFilters(
+            title,
+            filters.getLanguage(),
+            filters.getCountry(),
+            filters.getDirector(),
+            filters.getProducer(),
+            filters.getYearFrom(),
+            filters.getYearTo(),
+            filters.getDistributor()
+        );
         return ResponseEntity.ok(movies);
     }
 }
