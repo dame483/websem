@@ -28,27 +28,23 @@ public class ConversationService {
         response.setQuestion(question);
 
         try {
-            // Appeler le backend Python pour générer la requête SPARQL
             String sparqlQuery = callPythonBackend(question);
             response.setSparqlQuery(sparqlQuery);
 
             try {
-                // Essayer d'exécuter la requête SPARQL sur DBpedia
                 List<Map<String, String>> results = executeSparqlQuery(sparqlQuery);
                 
-                // Si aucun résultat, générer une réponse directement depuis l'IA
                 if (results.isEmpty()) {
                     String aiAnswer = generateAIAnswer(question);
-                    response.setResults(new ArrayList<>()); // Résultats vides
+                    response.setResults(new ArrayList<>())
                     response.setAiAnswer(aiAnswer);
                 } else {
                     response.setResults(results);
                 }
             } catch (Exception sparqlException) {
-                // Si la requête SPARQL est invalide, générer une réponse directement depuis l'IA
                 System.err.println("Requête SPARQL invalide, utilisation du fallback IA: " + sparqlException.getMessage());
                 String aiAnswer = generateAIAnswer(question);
-                response.setResults(new ArrayList<>()); // Résultats vides
+                response.setResults(new ArrayList<>()); 
                 response.setAiAnswer(aiAnswer);
             }
         } catch (Exception e) {
@@ -63,25 +59,19 @@ public class ConversationService {
     private String callPythonBackend(String question) throws Exception {
         String url = pythonBackendUrl + "/api/sparql/";
 
-        // Créer le payload JSON
         String payload = "{\"sentence\": \"" + escapeJson(question) + "\"}";
 
-        // Créer les headers
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // Créer la requête
         HttpEntity<String> request = new HttpEntity<>(payload, headers);
 
-        // Envoyer la requête
         ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
-        // Extraire la requête SPARQL de la réponse
         if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
             JsonNode rootNode = objectMapper.readTree(response.getBody());
             if (rootNode.has("sparql")) {
                 String sparqlBody = rootNode.get("sparql").asText();
-                // Construire la requête SPARQL complète avec les préfixes
                 String completeSparql = buildCompleteSparqlQuery(sparqlBody);
                 return completeSparql;
             } else {
@@ -93,29 +83,23 @@ public class ConversationService {
     }
 
     private String buildCompleteSparqlQuery(String whereClause) {
-        // Nettoyer le whereClause
         String cleanedWhereClause = whereClause.trim();
         if (cleanedWhereClause.isEmpty()) {
             throw new IllegalArgumentException("Le corps SPARQL reçu du LLM est vide");
         }
         
-        // Extraire les variables utilisées
         Set<String> variables = extractVariables(cleanedWhereClause);
         
-        // Construire le SELECT
         StringBuilder selectClause = new StringBuilder("SELECT ");
         
-        // Ajouter toutes les variables trouvées
         if (!variables.isEmpty()) {
             for (String var : variables) {
                 selectClause.append("?").append(var).append(" ");
             }
         } else {
-            // Si aucune variable n'est trouvée, ajouter une variable générique
             selectClause.append("?result ");
         }
         
-        // Construire la requête complète
         String prefixes = "PREFIX dbo: <http://dbpedia.org/ontology/>\n" +
                          "PREFIX dbr: <http://dbpedia.org/resource/>\n" +
                          "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
@@ -132,11 +116,9 @@ public class ConversationService {
     private Set<String> extractVariables(String whereClause) {
         Set<String> variables = new LinkedHashSet<>();
         
-        // Trouver tous les tokens commençant par ?
         String[] tokens = whereClause.split("\\s+");
         
         for (String token : tokens) {
-            // Enlever les caractères spéciaux à la fin (points, parenthèses, etc.)
             String cleaned = token.replaceAll("[^a-zA-Z0-9_?]", "");
             
             if (cleaned.startsWith("?") && cleaned.length() > 1) {
@@ -180,7 +162,6 @@ private List<Map<String, String>> executeSparqlQuery(String sparqlQuery) throws 
                     Map<String, String> row = new HashMap<>();
                     String filmUri = null;
 
-                    // Extraire l'URI du film et le label
                     Iterator<Map.Entry<String, JsonNode>> fields = binding.fields();
                     while (fields.hasNext()) {
                         Map.Entry<String, JsonNode> entry = fields.next();
@@ -190,12 +171,10 @@ private List<Map<String, String>> executeSparqlQuery(String sparqlQuery) throws 
                         if (value.has("value")) {
                             String stringValue = value.get("value").asText();
                             
-                            // Capturer l'URI pour déduplication
                             if (value.get("type").asText().equals("uri")) {
                                 filmUri = stringValue;
                             }
                             
-                            // Nettoyer les URIs pour affichage
                             String displayValue = stringValue;
                             if (displayValue.contains("/resource/")) {
                                 displayValue = displayValue.substring(displayValue.lastIndexOf("/") + 1)
@@ -205,12 +184,10 @@ private List<Map<String, String>> executeSparqlQuery(String sparqlQuery) throws 
                         }
                     }
 
-                    // Ajouter uniquement si pas déjà vu
                     if (filmUri != null && !seenUris.contains(filmUri) && !row.isEmpty()) {
                         seenUris.add(filmUri);
                         results.add(row);
                         
-                        // Limiter à 20 résultats
                         if (results.size() >= 20) {
                             break;
                         }
