@@ -1,6 +1,7 @@
 package fr.insalyon.websem.service;
 
 import fr.insalyon.websem.model.Movie;
+import fr.insalyon.websem.model.Actor;
 import org.apache.jena.query.*;
 import org.springframework.stereotype.Service;
 
@@ -36,60 +37,106 @@ public class MovieExplorationSPARQLService {
         PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
         SELECT ?movie 
-               (SAMPLE(?titleLabel) AS ?title)
-               (SAMPLE(?descriptionLabel) AS ?description)
-               (SAMPLE(?thumbnailLabel) AS ?thumbnail)
-               (SAMPLE(?runtimeLabel) AS ?runtime)
-               (SAMPLE(?grossLabel) AS ?gross)
-               (SAMPLE(?budgetLabel) AS ?budget)
-               (MAX(?extracted_year) AS ?year)
-               (GROUP_CONCAT(DISTINCT STR(?directorRes); separator=", ") AS ?directorUris)
-               (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
-               (GROUP_CONCAT(DISTINCT ?producer; separator=", ") AS ?producers)
-               (GROUP_CONCAT(DISTINCT ?editor; separator=", ") AS ?editors)
-               (GROUP_CONCAT(DISTINCT ?studio; separator=", ") AS ?studios)
-               (GROUP_CONCAT(DISTINCT ?musicComposer; separator=", ") AS ?musicComposers)
-               (GROUP_CONCAT(DISTINCT ?distributor; separator=", ") AS ?distributors)
-               (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
-               (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
+            (SAMPLE(?titleLabel) AS ?title)
+            (SAMPLE(?descriptionLabel) AS ?description)
+            (SAMPLE(?thumbnailLabel) AS ?thumbnail)
+            (SAMPLE(?runtimeLabel) AS ?runtime)
+            (SAMPLE(?grossLabel) AS ?gross)
+            (SAMPLE(?budgetLabel) AS ?budget)
+            (MAX(?extracted_year) AS ?year)
+            (GROUP_CONCAT(DISTINCT STR(?directorRes); separator=", ") AS ?directorUris)
+            (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
+            (GROUP_CONCAT(DISTINCT ?producer; separator=", ") AS ?producers)
+            (GROUP_CONCAT(DISTINCT ?editor; separator=", ") AS ?editors)
+            (GROUP_CONCAT(DISTINCT ?studio; separator=", ") AS ?studios)
+            (GROUP_CONCAT(DISTINCT ?musicComposer; separator=", ") AS ?musicComposers)
+            (GROUP_CONCAT(DISTINCT ?distributor; separator=", ") AS ?distributors)
+            (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
+            (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
         WHERE {
-          ?movie a dbo:Film .
-          ?movie rdfs:label ?titleLabel .
-          FILTER(LANG(?titleLabel) = "en")
-          FILTER(REGEX(?titleLabel, "%s", "i"))   
-
-          OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel) = "en") }
-           
-            OPTIONAL { 
-                SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
-                WHERE {
-                ?movie dbo:description ?desc .
-                FILTER(REGEX(?desc, "^[0-9]{4}"))
-                }
-                GROUP BY ?movie
-            }
-          OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director .FILTER(LANG(?director) = "en")}
-          OPTIONAL { ?movie dbo:producer ?producerRes . ?producerRes rdfs:label ?producer . FILTER(LANG(?producer) = "en") }
-          OPTIONAL { ?movie dbo:editing ?editorRes . ?editorRes rdfs:label ?editor . FILTER(LANG(?editor) = "en") }
-          OPTIONAL { ?movie dbo:studio ?studio . }
-          OPTIONAL { ?movie dbo:musicComposer ?musicComposerRes . ?musicComposerRes rdfs:label ?musicComposer . FILTER(LANG(?musicComposer) = "en") }
-          OPTIONAL { ?movie dbo:distributor ?distributorRes . ?distributorRes rdfs:label ?distributor . FILTER(LANG(?distributor) = "en") }
-          OPTIONAL { ?movie dbp:country ?country . }
-          OPTIONAL { ?movie dbp:language ?language . }
-          OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
-          OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
-          OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
-          OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
+        # Filtrer les films d'abord (le plus tôt possible)
+        ?movie a dbo:Film .
+        ?movie rdfs:label ?titleLabel .
+        FILTER(LANG(?titleLabel) = "en")
+        FILTER(REGEX(?titleLabel, "%s", "i"))
+        
+        # Extraction de l'année directement (sans sous-requête)
+        OPTIONAL { 
+            ?movie dbo:description ?desc_with_year .
+            FILTER(REGEX(?desc_with_year, "^[0-9]{4}"))
+            BIND(xsd:integer(REPLACE(STR(?desc_with_year), "^([0-9]{4}).*", "$1")) AS ?extracted_year)
+        }
+        
+        OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel) = "en") }
+        OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
+        OPTIONAL { ?movie dbo:producer ?producerRes . ?producerRes rdfs:label ?producer . FILTER(LANG(?producer) = "en") }
+        OPTIONAL { ?movie dbo:editing ?editorRes . ?editorRes rdfs:label ?editor . FILTER(LANG(?editor) = "en") }
+        OPTIONAL { ?movie dbo:studio ?studio . }
+        OPTIONAL { ?movie dbo:musicComposer ?musicComposerRes . ?musicComposerRes rdfs:label ?musicComposer . FILTER(LANG(?musicComposer) = "en") }
+        OPTIONAL { ?movie dbo:distributor ?distributorRes . ?distributorRes rdfs:label ?distributor . FILTER(LANG(?distributor) = "en") }
+        OPTIONAL { ?movie dbp:country ?country . }
+        OPTIONAL { ?movie dbp:language ?language . }
+        OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
+        OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
+        OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
+        OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
         }
         GROUP BY ?movie 
         LIMIT 20
     """, escapeString(movieName));
-}
+    }
 
 
-    // Graphe des acteurs
+    // Graphe des acteurs : acteurs stars du film + leur film le plus rentable
+    public List<Actor> getTopActorsByMovie(String movieUri) {
+        String sparqlQuery = buildTopActorsByMovieQuery(movieUri);
+        ResultSet results = executeSparqlQuery(sparqlQuery);
 
-    
+        List<Actor> actors = new ArrayList<>();
+
+        if (results != null) {
+            while (results.hasNext()) {
+                actors.add(mapSolutionToActor(results.nextSolution()));
+            }
+        }
+        return actors;
+    }
+
+    private String buildTopActorsByMovieQuery(String movieUri) {
+        return String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+            SELECT ?actor ?actorName ?topMovie ?topMovieTitle ?maxGross
+            WHERE {
+            {
+                SELECT ?actor (MAX(xsd:decimal(?gross)) AS ?maxGross)
+                WHERE {
+                <%s> dbo:starring ?actor .
+                ?anyMovie dbo:starring ?actor .
+                ?anyMovie dbo:gross ?gross .
+                FILTER(DATATYPE(?gross) = <http://dbpedia.org/datatype/usDollar>)
+                }
+                GROUP BY ?actor
+            }
+
+            ?topMovie dbo:starring ?actor .
+            ?topMovie dbo:gross ?grossValue .
+            FILTER(xsd:decimal(?grossValue) = ?maxGross)
+            FILTER(DATATYPE(?grossValue) = <http://dbpedia.org/datatype/usDollar>)
+
+            ?topMovie rdfs:label ?topMovieTitle .
+            FILTER(LANG(?topMovieTitle) = "en")
+
+            ?actor rdfs:label ?actorName .
+            FILTER(LANG(?actorName) = "en")
+            }
+            ORDER BY DESC(?maxGross)
+            """, movieUri);
+    }
+
+
     
     // Films récents d’un réalisateur (director)
     public List<Movie> getRecentMoviesByDirector(String directorUri) {
@@ -130,6 +177,7 @@ public class MovieExplorationSPARQLService {
 
     
     // Distribution des genres (camembert)
+    
 
     // Top films par budget
 
@@ -194,6 +242,22 @@ public class MovieExplorationSPARQLService {
         movie.setThumbnail(getStringValue(solution, "thumbnail"));
         return movie;
     }
+
+    private Actor mapSolutionToActor(QuerySolution sol) {
+        Actor actor = new Actor();
+        actor.setActorUri(getStringValue(sol, "actor"));
+        actor.setActorName(getStringValue(sol, "actorName"));
+        actor.setTopMovieUri(getStringValue(sol, "topMovie"));
+        actor.setTopMovieTitle(getStringValue(sol, "topMovieTitle"));
+
+        String grossStr = getStringValue(sol, "maxGross");
+        if (grossStr != null) {
+            actor.setMaxGross(Double.parseDouble(grossStr.replaceAll("[^0-9.]", "")));
+        }
+
+        return actor;
+    }
+
 
 
 }
