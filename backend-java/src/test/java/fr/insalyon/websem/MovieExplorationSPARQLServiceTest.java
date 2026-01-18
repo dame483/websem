@@ -5,6 +5,8 @@ import fr.insalyon.websem.model.Genre;
 import fr.insalyon.websem.model.Actor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.util.stream.IntStream;
+
 
 import java.util.*;
 
@@ -199,6 +201,30 @@ class MovieExplorationSPARQLServiceTest {
         assertTrue(totalMovies > 0, "Il doit y avoir au moins un film en 1989");
     }
 
+    
+    @Test
+    void testTopBudgetMoviesByYear_2010() {
+        String year = "2010";
+
+        List<Movie> topMovies = service.getTopBudgetMoviesByYear(year);
+
+        assertNotNull(topMovies, "La liste des films ne doit pas être null");
+        assertFalse(topMovies.isEmpty(), "La liste des films ne doit pas être vide");
+        assertTrue(topMovies.size() <= 10, "On doit récupérer au maximum 10 films");
+
+        System.out.println("\nTop films par budget pour l'année " + year + " :");
+
+        topMovies.forEach(m -> {
+            assertNotNull(m.getTitle(), "Chaque film doit avoir un titre");
+            assertNotNull(m.getUri(), "Chaque film doit avoir une URI");
+            assertNotNull(m.getBudget(), "Chaque film doit avoir un budget");
+            System.out.println("Titre : " + m.getTitle());
+            System.out.println("URI : " + m.getUri());
+            System.out.println("Budget : " + m.getBudget());
+            System.out.println("-----------");
+        });
+
+    }
 
 
 }

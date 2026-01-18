@@ -101,8 +101,6 @@ public class MovieExplorationSPARQLService {
 
 
 
-
-
     /**
      * Récupère les acteurs principaux d’un film ainsi que,
      * pour chacun d’eux, le film le plus rentable de leur carrière.
@@ -366,14 +364,66 @@ public class MovieExplorationSPARQLService {
     }
 
 
+    /**
+     * Récupère les 10 films à plus gros budget pour une année donnée.
+     *
+     * @param year année des films à récupérer
+     * @return liste de Movie triés par budget décroissant
+     */
+    public List<Movie> getTopBudgetMoviesByYear(String year) {
+        String sparqlQuery = buildTopBudgetMoviesQuery(year);
+        ResultSet results = executeSparqlQuery(sparqlQuery);
 
+        List<Movie> movies = new ArrayList<>();
+        if (results != null) {
+            while (results.hasNext()) {
+                movies.add(mapSolutionToTopBudgetMovie(results.nextSolution()));
+            }
+        }
+        return movies;
+    }
 
+    /**
+     * Construit la requête SPARQL pour récupérer les 10 films à plus gros budget d’une année donnée.
+     *
+     * @param year année des films
+     * @return requête SPARQL complète
+     */
+    private String buildTopBudgetMoviesQuery(String year) {
+        return String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-    // Top films par budget
+            SELECT DISTINCT ?movie ?title ?budget
+            WHERE {
+            ?movie a dbo:Film .
+            ?movie rdfs:label ?title .
+            ?movie dbo:description ?desc .
+
+            FILTER(LANG(?title) = "en")
+            FILTER(REGEX(?desc, "^%s"))
+
+            {
+                ?movie dbo:budget ?budget .
+                FILTER(DATATYPE(?budget) = <http://dbpedia.org/datatype/usDollar>)
+            }
+            UNION
+            {
+                ?movie dbp:budget ?budget .
+                FILTER(DATATYPE(?budget) = <http://dbpedia.org/datatype/usDollar>)
+            }
+            }
+            ORDER BY DESC(xsd:decimal(?budget))
+            LIMIT 10
+        """, year);
+    }
 
 
 
     // Méthodes utilitaires
+
     /**
      * Exécute une requête SPARQL sur l’endpoint DBpedia.
      *
@@ -460,7 +510,7 @@ public class MovieExplorationSPARQLService {
     /**
      * Transforme une solution SPARQL en objet Actor.
      */
-        private Actor mapSolutionToActor(QuerySolution sol) {
+    private Actor mapSolutionToActor(QuerySolution sol) {
         Actor actor = new Actor();
         actor.setActorUri(getStringValue(sol, "actor"));
         actor.setActorName(getStringValue(sol, "actorName"));
@@ -472,6 +522,23 @@ public class MovieExplorationSPARQLService {
         }
 
         return actor;
+    }
+
+    /**
+     * Transforme une solution SPARQL en objet Movie pour le top des budgets.
+     *
+     * @param sol solution SPARQL contenant au moins ?movie, ?title et éventuellement ?budget
+     * @return Movie avec URI, titre et budget (si présent)
+     */
+    private Movie mapSolutionToTopBudgetMovie(QuerySolution sol) {
+        Movie movie = new Movie();
+        movie.setUri(getStringValue(sol, "movie"));
+        movie.setTitle(getStringValue(sol, "title"));
+        
+        if (sol.contains("budget") && sol.get("budget").isLiteral()) {
+            movie.setBudget(sol.get("budget").asLiteral().getString());
+        }
+        return movie;
     }
 
 
