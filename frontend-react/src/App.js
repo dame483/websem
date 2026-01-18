@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import * as d3 from 'd3';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -11,13 +12,158 @@ function extractMovieName(uri) {
   return uri;
 }
 
+function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
+  useEffect(() => {
+    if (!selectedMovie || recentMovies.length === 0) return;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const width = 800;
+    const height = 600;
+
+    svg.attr('width', width).attr('height', height);
+
+    const nodes = [
+      { 
+        id: 'main', 
+        name: selectedMovie.title || extractMovieName(selectedMovie.uri),
+        year: selectedMovie.releaseDate,
+        isMain: true 
+      },
+      ...recentMovies.map((m, i) => ({
+        id: `movie-${i}`,
+        name: m.title || extractMovieName(m.uri),
+        year: m.releaseDate,
+        isMain: false
+      }))
+    ];
+
+    const links = recentMovies.map((_, i) => ({
+      source: 'main',
+      target: `movie-${i}`
+    }));
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(150))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(60));
+
+    const g = svg.append('g');
+
+    const zoom = d3.zoom()
+      .scaleExtent([0.5, 3])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform);
+      });
+
+    svg.call(zoom);
+
+    const link = g.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', '#999')
+      .attr('stroke-opacity', 0.6)
+      .attr('stroke-width', 2);
+
+    const node = g.append('g')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .call(d3.drag()
+        .on('start', dragstarted)
+        .on('drag', dragged)
+        .on('end', dragended));
+
+    node.append('circle')
+      .attr('r', d => d.isMain ? 30 : 20)
+      .attr('fill', d => d.isMain ? '#ff6b6b' : '#4ecdc4')
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2);
+
+    node.append('text')
+      .text(d => {
+        const name = d.name.length > 20 ? d.name.substring(0, 20) + '...' : d.name;
+        return name;
+      })
+      .attr('text-anchor', 'middle')
+      .attr('dy', d => d.isMain ? -40 : -30)
+      .attr('font-size', d => d.isMain ? '14px' : '12px')
+      .attr('font-weight', d => d.isMain ? 'bold' : 'normal')
+      .attr('fill', '#333');
+
+    node.append('text')
+      .text(d => d.year ? `(${d.year})` : '')
+      .attr('text-anchor', 'middle')
+      .attr('dy', d => d.isMain ? 45 : 35)
+      .attr('font-size', '10px')
+      .attr('fill', '#666');
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    function dragstarted(event) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      event.subject.fx = event.subject.x;
+      event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+      event.subject.fx = event.x;
+      event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+      if (!event.active) simulation.alphaTarget(0);
+      event.subject.fx = null;
+      event.subject.fy = null;
+    }
+
+    return () => {
+      simulation.stop();
+    };
+  }, [selectedMovie, recentMovies]);
+
+  return (
+    <>
+      <p style={{ color: '#666', marginBottom: '16px', fontSize: '14px', textAlign: 'center' }}>
+        Le film sélectionné est au centre (rouge). Glissez-déposez les nœuds pour réorganiser.
+      </p>
+      <div style={{ 
+        border: '1px solid #ddd', 
+        borderRadius: '8px', 
+        overflow: 'hidden',
+        backgroundColor: '#f9f9f9',
+        marginBottom: '16px'
+      }}>
+        <svg ref={svgRef} style={{ display: 'block' }} />
+      </div>
+    </>
+  );
+}
+
 function App() {
   const [query, setQuery] = useState('');
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searched, setSearched] = useState(false);
-  
+  const [showModal, setShowModal] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [recentMovies, setRecentMovies] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const svgRef = useRef(null);
+
   // Filtres avancés
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -150,6 +296,34 @@ function App() {
     if (!uri) return '';
     const parts = uri.split('/');
     return decodeURIComponent(parts[parts.length - 1].replace(/_/g, ' '));
+  };
+
+  const openMovieModal = async (movie) => {
+    if (!movie.directorUri) return;
+
+    setSelectedMovie(movie);
+    setShowModal(true);
+    setModalLoading(true);
+
+    try {
+      let directorUri = movie.directorUri;
+      if (!directorUri.startsWith('http')) {
+      directorUri = `http://dbpedia.org/resource/${movie.directorUri.replace(/ /g, '_')}`;
+      }
+
+      const encodedUri = encodeURIComponent(directorUri);
+      const response = await axios.get(
+      `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedUri}&limit=10`
+      );
+      console.log(`http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedUri}&limit=10`); //test
+      console.log(response.data); //test
+      setRecentMovies(response.data); 
+    } catch (err) {
+      console.error(err);
+      setRecentMovies([]);
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   return (
@@ -330,7 +504,7 @@ function App() {
 
             <div className="movies-list">
               {movies.map((movie, index) => (
-                <div key={index} className="movie-card">
+                <div key={index} className="movie-card" onClick={() => openMovieModal(movie)}>
                   <div className="movie-content">
                     <h2 className="movie-title">{movie.title || extractMovieName(movie.uri)}</h2>
                     
@@ -501,8 +675,62 @@ function App() {
           </>
         )}
       </div>
-    </div>
-  );
+      {showModal && (
+      <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-content modal-content-wide" onClick={(e) => e.stopPropagation()}>
+          
+          <div className="graph-split-container">
+            <div className="graph-left">
+              <p style={{ 
+                textAlign: 'center', 
+                color: '#6e6e73', 
+                fontSize: '0.9375rem'
+              }}>
+                Principaux films des acteurs ayant joués dans le film
+              </p>
+            </div>
+
+            <div className="graph-right">
+              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
+                Films de {selectedMovie?.director}
+              </h2>
+
+              {modalLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <p>Chargement...</p>
+                </div>
+              ) : recentMovies.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '40px' }}>
+                  Aucun autre film trouvé pour ce réalisateur
+                </p>
+              ) : (
+                <>
+                  <GraphVisualization 
+                    selectedMovie={selectedMovie}
+                    recentMovies={recentMovies}
+                    svgRef={svgRef}
+                  />
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#999', 
+                    textAlign: 'center',
+                    marginTop: '16px'
+                  }}>
+                    {recentMovies.length + 1} film{recentMovies.length + 1 > 1 ? 's' : ''} au total
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <button className="close-button" onClick={() => setShowModal(false)}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    )}
+</div>
+);
 }
 
 export default App;
