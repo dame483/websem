@@ -27,8 +27,7 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
     const nodes = [
       { 
         id: 'main', 
-        name: selectedMovie.title || extractMovieName(selectedMovie.uri),
-        year: selectedMovie.releaseDate,
+        name: selectedMovie.director,
         isMain: true 
       },
       ...recentMovies.map((m, i) => ({
@@ -136,7 +135,7 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
   return (
     <>
       <p style={{ color: '#666', marginBottom: '16px', fontSize: '14px', textAlign: 'center' }}>
-        Le film sélectionné est au centre (rouge). Glissez-déposez les nœuds pour réorganiser.
+       Glissez-déposez les nœuds pour réorganiser.
       </p>
       <div style={{ 
         border: '1px solid #ddd', 
@@ -678,6 +677,17 @@ function App() {
       {showModal && (
       <div className="modal-overlay" onClick={() => setShowModal(false)}>
         <div className="modal-content modal-content-wide" onClick={(e) => e.stopPropagation()}>
+          <h1 style={{ 
+            margin: '0 0 24px 0', 
+            color: '#1d1d1f', 
+            fontSize: '2rem', 
+            fontWeight: 600,
+            textAlign: 'center',
+            borderBottom: '2px solid #d2d2d7',
+            paddingBottom: '16px'
+          }}>
+            Informations complémentaires à propos du film : {selectedMovie?.title || extractMovieName(selectedMovie?.uri)}
+          </h1>
           
           <div className="graph-split-container">
             <div className="graph-left">
