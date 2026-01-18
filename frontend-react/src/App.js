@@ -18,6 +18,18 @@ function App() {
   const [error, setError] = useState(null);
   const [searched, setSearched] = useState(false);
   
+  // Filtres avancés
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    language: '',
+    country: '',
+    director: '',
+    producer: '',
+    yearFrom: '',
+    yearTo: '',
+    distributor: ''
+  });
+  
   // État pour l'agent conversationnel
   const [conversation, setConversation] = useState('');
   const [conversationHistory, setConversationHistory] = useState([]);
@@ -50,6 +62,46 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAdvancedSearch = async (e) => {
+    e.preventDefault();
+    
+    // Le titre est obligatoire (depuis la recherche de base)
+    if (!query.trim()) {
+      setError('Veuillez d\'abord entrer un titre de film');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSearched(true);
+
+    try {
+      const response = await axios.post(
+        `http://localhost:8080/api/movies/search-advanced`,
+        filters,
+        {
+          params: { title: query }
+        }
+      );
+      setMovies(response.data);
+      if (response.data.length === 0) {
+        setError('Aucun film trouvé avec ces critères');
+      }
+    } catch (err) {
+      setError('Erreur lors de la recherche. Vérifiez que le backend est démarré.');
+      console.error('Erreur:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (field, value) => {
+    setFilters({
+      ...filters,
+      [field]: value
+    });
   };
 
   const handleConversation = async (e) => {
@@ -142,8 +194,127 @@ function App() {
                     'Rechercher'
                   )}
                 </button>
+                <button 
+                  type="button" 
+                  className="filter-toggle-button"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  {showFilters ? '✕ Filtres' : '⚙ Filtres'}
+                </button>
               </div>
             </form>
+
+            {/* Formulaire des filtres avancés */}
+            {showFilters && (
+              <form onSubmit={handleAdvancedSearch} className="advanced-filter-form">
+                <div className="filter-grid">
+                  <div className="filter-group">
+                    <label htmlFor="language">Langue</label>
+                    <input
+                      id="language"
+                      type="text"
+                      value={filters.language}
+                      onChange={(e) => handleFilterChange('language', e.target.value)}
+                      placeholder="Ex: English"
+                      className="filter-input"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label htmlFor="country">Pays</label>
+                    <input
+                      id="country"
+                      type="text"
+                      value={filters.country}
+                      onChange={(e) => handleFilterChange('country', e.target.value)}
+                      placeholder="Ex: United States"
+                      className="filter-input"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label htmlFor="director">Réalisateur</label>
+                    <input
+                      id="director"
+                      type="text"
+                      value={filters.director}
+                      onChange={(e) => handleFilterChange('director', e.target.value)}
+                      placeholder="Ex: James Cameron"
+                      className="filter-input"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label htmlFor="producer">Producteur</label>
+                    <input
+                      id="producer"
+                      type="text"
+                      value={filters.producer}
+                      onChange={(e) => handleFilterChange('producer', e.target.value)}
+                      placeholder="Ex: Jon Landau"
+                      className="filter-input"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label htmlFor="yearFrom">Année de</label>
+                    <input
+                      id="yearFrom"
+                      type="number"
+                      value={filters.yearFrom}
+                      onChange={(e) => handleFilterChange('yearFrom', e.target.value)}
+                      placeholder="Ex: 2000"
+                      className="filter-input"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label htmlFor="yearTo">Année à</label>
+                    <input
+                      id="yearTo"
+                      type="number"
+                      value={filters.yearTo}
+                      onChange={(e) => handleFilterChange('yearTo', e.target.value)}
+                      placeholder="Ex: 2023"
+                      className="filter-input"
+                    />
+                  </div>
+
+                  <div className="filter-group">
+                    <label htmlFor="distributor">Distributeur</label>
+                    <input
+                      id="distributor"
+                      type="text"
+                      value={filters.distributor}
+                      onChange={(e) => handleFilterChange('distributor', e.target.value)}
+                      placeholder="Ex: 20th Century"
+                      className="filter-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="filter-buttons">
+                  <button type="submit" className="filter-search-button" disabled={loading || !query.trim()}>
+                    {loading ? 'Recherche en cours...' : 'Affiner la recherche'}
+                  </button>
+                  <button 
+                    type="button"
+                    className="filter-reset-button"
+                    onClick={() => setFilters({
+                      language: '',
+                      country: '',
+                      director: '',
+                      producer: '',
+                      yearFrom: '',
+                      yearTo: '',
+                      distributor: ''
+                    })}
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+              </form>
+            )}
 
             {error && (
               <div className="error-message">
@@ -163,20 +334,94 @@ function App() {
                   <div className="movie-content">
                     <h2 className="movie-title">{movie.title || extractMovieName(movie.uri)}</h2>
                     
-                    {movie.releaseDate && (
-                      <p className="movie-date">
-                        {new Date(movie.releaseDate).getFullYear()}
-                      </p>
-                    )}
+                    <div className="movie-grid">
+                      {movie.releaseDate && (
+                        <div className="movie-info">
+                          <span className="info-label">Année :</span>
+                          <span className="info-value">{movie.releaseDate}</span>
+                        </div>
+                      )}
+                      
+                      {movie.director && (
+                        <div className="movie-info">
+                          <span className="info-label">Réalisateur :</span>
+                          <span className="info-value">{movie.director}</span>
+                        </div>
+                      )}
+                      
+                      {movie.producer && (
+                        <div className="movie-info">
+                          <span className="info-label">Producteur :</span>
+                          <span className="info-value">{movie.producer}</span>
+                        </div>
+                      )}
+                      
+                      {movie.country && (
+                        <div className="movie-info">
+                          <span className="info-label">Pays :</span>
+                          <span className="info-value">{movie.country}</span>
+                        </div>
+                      )}
+                      
+                      {movie.language && (
+                        <div className="movie-info">
+                          <span className="info-label">Langue :</span>
+                          <span className="info-value">{movie.language}</span>
+                        </div>
+                      )}
+                      
+                      {movie.editor && (
+                        <div className="movie-info">
+                          <span className="info-label">Monteur :</span>
+                          <span className="info-value">{movie.editor}</span>
+                        </div>
+                      )}
+                      
+                      {movie.budget && (
+                        <div className="movie-info">
+                          <span className="info-label">Budget :</span>
+                          <span className="info-value">{movie.budget}</span>
+                        </div>
+                      )}
+                      
+                      {movie.gross && (
+                        <div className="movie-info">
+                          <span className="info-label">Recettes :</span>
+                          <span className="info-value">{movie.gross}</span>
+                        </div>
+                      )}
+                      
+                      {movie.studio && (
+                        <div className="movie-info">
+                          <span className="info-label">Studio :</span>
+                          <span className="info-value">{movie.studio}</span>
+                        </div>
+                      )}
+                      
+                      {movie.musicComposer && (
+                        <div className="movie-info">
+                          <span className="info-label">Compositeur :</span>
+                          <span className="info-value">{movie.musicComposer}</span>
+                        </div>
+                      )}
+                      
+                      {movie.runtime && (
+                        <div className="movie-info">
+                          <span className="info-label">Durée :</span>
+                          <span className="info-value">{movie.runtime}</span>
+                        </div>
+                      )}
+                      
+                      {movie.distributor && (
+                        <div className="movie-info">
+                          <span className="info-label">Distributeur :</span>
+                          <span className="info-value">{movie.distributor}</span>
+                        </div>
+                      )}
+                    </div>
                     
-                    {movie.director && (
-                      <p className="movie-director">
-                        Réalisé par {movie.director}
-                      </p>
-                    )}
-                    
-                    {movie.abstract_ && (
-                      <p className="movie-abstract">{movie.abstract_}</p>
+                    {movie.description && (
+                      <p className="movie-description">{movie.description}</p>
                     )}
                   </div>
                 </div>
