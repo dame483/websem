@@ -475,9 +475,30 @@ public class MovieExplorationSPARQLService {
                 value = value.substring(0, value.indexOf("^^http"));
             }
             // Nettoyer les suffixes de langue (@en, @fr, etc.)
+            // Nettoyer les suffixes de type RDF (^^http://...)
+            if (value.contains("^^http")) {
+                value = value.substring(0, value.indexOf("^^http"));
+            }
+            // Nettoyer les suffixes de langue (@en, @fr, etc.)
             if (value.contains("@")) {
                 value = value.substring(0, value.lastIndexOf("@"));
             }
+            
+            // Nettoyer les URIs enchâssées (ex: "Bengali, http://dbpedia.org/resource/Bengali_language")
+            // Supprimer tout ce qui ressemble à une URI DBpedia après la virgule et l'espace
+            value = value.replaceAll(", http://dbpedia\\.org/resource/[^\\s,]*", "");
+            
+            // Nettoyer les URIs pour récupérer juste le nom final (au cas où il en reste)
+            if (value.startsWith("http://dbpedia.org/resource/")) {
+                value = value.replace("http://dbpedia.org/resource/", "").replace("_", " ");
+            }
+            
+            // Nettoyer les espaces en double et les virgules mal placées
+            value = value.replaceAll(",\\s*,", ",")  // Supprimer les virgules doubles
+                    .replaceAll("^[,\\s]+|[,\\s]+$", "")  // Supprimer les virgules/espaces au début/fin
+                    .replaceAll("\\s+", " ");  // Normaliser les espaces
+            
+            return value.trim();
             
             // Nettoyer les URIs enchâssées (ex: "Bengali, http://dbpedia.org/resource/Bengali_language")
             // Supprimer tout ce qui ressemble à une URI DBpedia après la virgule et l'espace
@@ -534,9 +555,12 @@ public class MovieExplorationSPARQLService {
         movie.setStudio(getStringValue(solution, "studios"));
         movie.setMusicComposer(getStringValue(solution, "musicComposers"));
         movie.setRuntime(formatRuntime(getStringValue(solution, "runtime")));
+        movie.setRuntime(formatRuntime(getStringValue(solution, "runtime")));
         movie.setDistributor(getStringValue(solution, "distributors"));
         movie.setCountry(getStringValue(solution, "countries"));
         movie.setLanguage(getStringValue(solution, "languages"));
+        movie.setGross(formatCurrency(getStringValue(solution, "gross")));
+        movie.setBudget(formatCurrency(getStringValue(solution, "budget")));
         movie.setGross(formatCurrency(getStringValue(solution, "gross")));
         movie.setBudget(formatCurrency(getStringValue(solution, "budget")));
         movie.setThumbnail(getStringValue(solution, "thumbnail"));

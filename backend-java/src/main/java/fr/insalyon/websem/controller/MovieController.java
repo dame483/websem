@@ -1,6 +1,7 @@
 package fr.insalyon.websem.controller;
 
 import fr.insalyon.websem.dto.MovieFilterRequest;
+import fr.insalyon.websem.dto.MovieFilterRequest;
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.service.MovieExplorationSPARQLService;
 import org.springframework.beans.factory.annotation.Autowired;
