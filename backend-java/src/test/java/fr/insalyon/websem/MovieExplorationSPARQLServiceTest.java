@@ -2,6 +2,7 @@ package fr.insalyon.websem.service;
 
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.model.Genre;
+import fr.insalyon.websem.model.Actor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class MovieExplorationSPARQLServiceTest {
         assertFalse(movies.isEmpty(), "La recherche doit retourner au moins un film");
     }
 
-    /*
+    
     @Test
     void testRequeteSPARQLComplete() {
         String filmName = "Inception";
@@ -69,7 +70,6 @@ class MovieExplorationSPARQLServiceTest {
 
         List<Movie> movies = service.getRecentMoviesByDirector(directorUri);
 
-        // Vérifications de base
         assertNotNull(movies, "La liste ne doit pas être null");
         assertFalse(movies.isEmpty(), "La requête doit retourner au moins un film");
         assertTrue(movies.size() <= 5, "On doit récupérer au maximum 5 films");
@@ -88,12 +88,54 @@ class MovieExplorationSPARQLServiceTest {
             System.out.println("Année (extraite) : " + m.getReleaseDate());
             System.out.println("Description : " + m.getDescription());
         }
-    }*/
+    }
 
-    // coder le test de la méthode qui donne els stars et le meilleurs film
-    // véeirifer qu'il y a 9 stars renvoyés dont Leonardo DiCaprio
-    // faire une requete sparql qui pour léonardo dicaprio renvoie son meilleur film (ceux qui ont gross en dollars)
-    // le comparer avec celui obtenue dans la requete
+   
+    @Test
+    void testTopActorsByMovie_Inception() {
+
+        String inceptionUri = "http://dbpedia.org/resource/Inception";
+
+        List<Actor> actors = service.getTopActorsByMovie(inceptionUri);
+
+        assertNotNull(actors, "La liste des acteurs ne doit pas être null");
+        assertFalse(actors.isEmpty(), "La liste des acteurs ne doit pas être vide");
+
+        System.out.println("\nActeurs stars de Inception et leur film le plus rentable :");
+
+        actors.forEach(a -> {
+            System.out.println("Acteur : " + a.getActorName());
+            System.out.println("Top film : " + a.getTopMovieTitle());
+            System.out.println("Gross max : " + a.getMaxGross());
+            System.out.println("-----------");
+        });
+
+        // Vérifier qu'on trouve Leonardo DiCaprio
+        Optional<Actor> leoOpt = actors.stream()
+                .filter(a -> a.getActorName().toLowerCase().contains("leonardo"))
+                .findFirst();
+
+        assertTrue(leoOpt.isPresent(), "Leonardo DiCaprio doit être présent dans les acteurs");
+
+        Actor leo = leoOpt.get();
+
+        assertNotNull(leo.getTopMovieTitle(), "Leonardo doit avoir un top film");
+        assertNotNull(leo.getTopMovieUri(), "Leonardo doit avoir une URI de top film");
+        assertTrue(leo.getMaxGross() > 0, "Leonardo doit avoir un gross > 0");
+
+        System.out.println("\nVérification Leonardo DiCaprio :");
+        System.out.println("Top film : " + leo.getTopMovieTitle());
+        System.out.println("Gross : " + leo.getMaxGross());
+
+        assertTrue(
+                leo.getTopMovieTitle().toLowerCase().contains("titanic") 
+                || leo.getTopMovieTitle().toLowerCase().contains("avatar") 
+                || leo.getMaxGross() > 1_000_000_000,
+                "Le film le plus rentable de Leonardo devrait être Titanic (ou équivalent très gros succès)"
+        );
+    }
+
+
 
     @Test
     void testFetchNormalizedGenres() {
@@ -103,7 +145,6 @@ class MovieExplorationSPARQLServiceTest {
         assertNotNull(genres, "La map de genres ne doit pas être null");
         assertFalse(genres.isEmpty(), "La map de genres ne doit pas être vide");
 
-        // Vérification de quelques entrées
         Genre oneGenre = genres.values().iterator().next();
 
         assertNotNull(oneGenre.getName(), "Le nom du genre ne doit pas être null");
@@ -126,7 +167,6 @@ class MovieExplorationSPARQLServiceTest {
 
         List<Genre> genres = service.getAllNormalizedGenresByYear("1989");
 
-        // Vérifications de base
         assertNotNull(genres, "La liste de genres ne doit pas être null");
         assertFalse(genres.isEmpty(), "La liste de genres ne doit pas être vide");
 
@@ -140,12 +180,23 @@ class MovieExplorationSPARQLServiceTest {
                         g.getName() + " | " + g.getCount() + " | " + g.getRawGenres()
                 ));
 
-        // Vérifications logiques supplémentaires
         for (Genre g : genres) {
             assertNotNull(g.getName(), "Le nom du genre ne doit pas être null");
             assertTrue(g.getCount() > 0, "Le nombre de films doit être > 0");
             assertNotNull(g.getRawGenres(), "rawGenres ne doit pas être null");
         }
+    }
+
+    @Test
+    void testCountMoviesByYear_1989() {
+        String year = "1989";
+
+        int totalMovies = service.countMoviesByYear(year);
+
+        assertTrue(totalMovies >= 0, "Le nombre de films ne doit pas être négatif");
+        System.out.println("Nombre total de films sortis en " + year + " : " + totalMovies);
+
+        assertTrue(totalMovies > 0, "Il doit y avoir au moins un film en 1989");
     }
 
 

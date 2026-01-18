@@ -14,7 +14,13 @@ public class MovieExplorationSPARQLService {
     private static final String DBPEDIA_ENDPOINT = "https://dbpedia.org/sparql";
 
 
-    // Recherche de films Barre de recherche 
+    /**
+     * Recherche des films dans DBpedia à partir d’un mot-clé sur le titre.
+     * Utilisé pour la barre de recherche principale.
+     *
+     * @param movieName mot-clé saisi par l’utilisateur
+     * @return liste de films correspondant au mot-clé
+     */
     public List<Movie> searchMovies(String movieName) {
         String sparqlQuery = buildSearchMovieQuery(movieName);
         ResultSet results = executeSparqlQuery(sparqlQuery);
@@ -28,67 +34,83 @@ public class MovieExplorationSPARQLService {
         return movies;
     }
 
-    // si on veut le titre exact utilsier : FILTER(?title = "Avatar"@en)
-    // TODO : AJOUTER DES FILTER dans la requete pour les filtres de la barre de recherches 
-   private String buildSearchMovieQuery(String movieName) {
-    return String.format("""
-        PREFIX dbo: <http://dbpedia.org/ontology/>
-        PREFIX dbp: <http://dbpedia.org/property/>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    /**
+     * Construit la requête SPARQL de recherche de films.
+     * La requête récupère les principales informations du film :
+     * titre, description, année, réalisateurs, producteurs, budget, gross, etc.
+     *
+     * @param movieName mot-clé à rechercher dans le titre
+     * @return requête SPARQL complète
+     */
+    private String buildSearchMovieQuery(String movieName) {
+        return String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-        SELECT ?movie 
-            (SAMPLE(?titleLabel) AS ?title)
-            (SAMPLE(?descriptionLabel) AS ?description)
-            (SAMPLE(?thumbnailLabel) AS ?thumbnail)
-            (SAMPLE(?runtimeLabel) AS ?runtime)
-            (SAMPLE(?grossLabel) AS ?gross)
-            (SAMPLE(?budgetLabel) AS ?budget)
-            (MAX(?extracted_year) AS ?year)
-            (GROUP_CONCAT(DISTINCT STR(?directorRes); separator=", ") AS ?directorUris)
-            (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
-            (GROUP_CONCAT(DISTINCT ?producer; separator=", ") AS ?producers)
-            (GROUP_CONCAT(DISTINCT ?editor; separator=", ") AS ?editors)
-            (GROUP_CONCAT(DISTINCT ?studio; separator=", ") AS ?studios)
-            (GROUP_CONCAT(DISTINCT ?musicComposer; separator=", ") AS ?musicComposers)
-            (GROUP_CONCAT(DISTINCT ?distributor; separator=", ") AS ?distributors)
-            (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
-            (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
-        WHERE {
-        # Filtrer les films d'abord (le plus tôt possible)
-        ?movie a dbo:Film .
-        ?movie rdfs:label ?titleLabel .
-        FILTER(LANG(?titleLabel) = "en")
-        FILTER(REGEX(?titleLabel, "%s", "i"))
-        
-        # Extraction de l'année directement (sans sous-requête)
-        OPTIONAL { 
-            ?movie dbo:description ?desc_with_year .
-            FILTER(REGEX(?desc_with_year, "^[0-9]{4}"))
-            BIND(xsd:integer(REPLACE(STR(?desc_with_year), "^([0-9]{4}).*", "$1")) AS ?extracted_year)
+            SELECT ?movie 
+                (SAMPLE(?titleLabel) AS ?title)
+                (SAMPLE(?descriptionLabel) AS ?description)
+                (SAMPLE(?thumbnailLabel) AS ?thumbnail)
+                (SAMPLE(?runtimeLabel) AS ?runtime)
+                (SAMPLE(?grossLabel) AS ?gross)
+                (SAMPLE(?budgetLabel) AS ?budget)
+                (MAX(?extracted_year) AS ?year)
+                (GROUP_CONCAT(DISTINCT STR(?directorRes); separator=", ") AS ?directorUris)
+                (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
+                (GROUP_CONCAT(DISTINCT ?producer; separator=", ") AS ?producers)
+                (GROUP_CONCAT(DISTINCT ?editor; separator=", ") AS ?editors)
+                (GROUP_CONCAT(DISTINCT ?studio; separator=", ") AS ?studios)
+                (GROUP_CONCAT(DISTINCT ?musicComposer; separator=", ") AS ?musicComposers)
+                (GROUP_CONCAT(DISTINCT ?distributor; separator=", ") AS ?distributors)
+                (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
+                (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
+            WHERE {
+            # Filtrer les films d'abord (le plus tôt possible)
+            ?movie a dbo:Film .
+            ?movie rdfs:label ?titleLabel .
+            FILTER(LANG(?titleLabel) = "en")
+            FILTER(REGEX(?titleLabel, "%s", "i"))
+            
+            # Extraction de l'année directement (sans sous-requête)
+            OPTIONAL { 
+                ?movie dbo:description ?desc_with_year .
+                FILTER(REGEX(?desc_with_year, "^[0-9]{4}"))
+                BIND(xsd:integer(REPLACE(STR(?desc_with_year), "^([0-9]{4}).*", "$1")) AS ?extracted_year)
+            }
+            
+            OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel) = "en") }
+            OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
+            OPTIONAL { ?movie dbo:producer ?producerRes . ?producerRes rdfs:label ?producer . FILTER(LANG(?producer) = "en") }
+            OPTIONAL { ?movie dbo:editing ?editorRes . ?editorRes rdfs:label ?editor . FILTER(LANG(?editor) = "en") }
+            OPTIONAL { ?movie dbo:studio ?studio . }
+            OPTIONAL { ?movie dbo:musicComposer ?musicComposerRes . ?musicComposerRes rdfs:label ?musicComposer . FILTER(LANG(?musicComposer) = "en") }
+            OPTIONAL { ?movie dbo:distributor ?distributorRes . ?distributorRes rdfs:label ?distributor . FILTER(LANG(?distributor) = "en") }
+            OPTIONAL { ?movie dbp:country ?country . }
+            OPTIONAL { ?movie dbp:language ?language . }
+            OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
+            OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
+            OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
+            OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
+            }
+            GROUP BY ?movie 
+            LIMIT 20
+        """, escapeString(movieName));
         }
-        
-        OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel) = "en") }
-        OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
-        OPTIONAL { ?movie dbo:producer ?producerRes . ?producerRes rdfs:label ?producer . FILTER(LANG(?producer) = "en") }
-        OPTIONAL { ?movie dbo:editing ?editorRes . ?editorRes rdfs:label ?editor . FILTER(LANG(?editor) = "en") }
-        OPTIONAL { ?movie dbo:studio ?studio . }
-        OPTIONAL { ?movie dbo:musicComposer ?musicComposerRes . ?musicComposerRes rdfs:label ?musicComposer . FILTER(LANG(?musicComposer) = "en") }
-        OPTIONAL { ?movie dbo:distributor ?distributorRes . ?distributorRes rdfs:label ?distributor . FILTER(LANG(?distributor) = "en") }
-        OPTIONAL { ?movie dbp:country ?country . }
-        OPTIONAL { ?movie dbp:language ?language . }
-        OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
-        OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
-        OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
-        OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
-        }
-        GROUP BY ?movie 
-        LIMIT 20
-    """, escapeString(movieName));
-    }
 
 
-    // Graphe des acteurs : acteurs stars du film + leur film le plus rentable
+
+
+
+    /**
+     * Récupère les acteurs principaux d’un film ainsi que,
+     * pour chacun d’eux, le film le plus rentable de leur carrière.
+     * Utilisé pour construire le graphe des acteurs.
+     *
+     * @param movieUri URI DBpedia du film
+     * @return liste d’acteurs avec leur film le plus rentable
+     */
     public List<Actor> getTopActorsByMovie(String movieUri) {
         String sparqlQuery = buildTopActorsByMovieQuery(movieUri);
         ResultSet results = executeSparqlQuery(sparqlQuery);
@@ -103,6 +125,15 @@ public class MovieExplorationSPARQLService {
         return actors;
     }
 
+
+    /**
+     * Construit la requête SPARQL permettant de :
+     * - récupérer les acteurs d’un film
+     * - calculer pour chacun leur film ayant le plus gros box-office
+     *
+     * @param movieUri URI DBpedia du film
+     * @return requête SPARQL complète
+     */
     private String buildTopActorsByMovieQuery(String movieUri) {
         return String.format("""
             PREFIX dbo: <http://dbpedia.org/ontology/>
@@ -139,7 +170,12 @@ public class MovieExplorationSPARQLService {
 
 
     
-    // Films récents d’un réalisateur (director)
+    /**
+     * Récupère les films les plus récents d’un réalisateur donné.
+     *
+     * @param directorUri URI DBpedia du réalisateur
+     * @return liste des 5 films les plus récents
+     */
     public List<Movie> getRecentMoviesByDirector(String directorUri) {
         String sparqlQuery = buildRecentMoviesByDirectorQuery(directorUri);
         ResultSet results = executeSparqlQuery(sparqlQuery);
@@ -153,6 +189,15 @@ public class MovieExplorationSPARQLService {
         return movies;
     }
 
+
+    /**
+    * Construit la requête SPARQL permettant d’obtenir
+    * les films les plus récents d’un réalisateur,
+    * en extrayant l’année depuis la description.
+    *
+    * @param directorUri URI DBpedia du réalisateur
+    * @return requête SPARQL complète
+    */
     private String buildRecentMoviesByDirectorQuery(String directorUri) {
         return String.format("""
             PREFIX dbo: <http://dbpedia.org/ontology/>
@@ -178,8 +223,13 @@ public class MovieExplorationSPARQLService {
 
 
 
-    // Distribution des genres (camembert)
-    // méthode get qui renvoie 
+    /**
+     * Récupère la distribution des genres normalisés pour une année donnée.
+     * Les genres sont regroupés par premier mot (ex: "Action film" → "Action").
+     *
+     * @param year année recherchée (ex: "1999")
+     * @return liste de genres utilisés cette année avec leur nombre de films
+     */
     public List<Genre> getAllNormalizedGenresByYear(String year) {
 
         Map<String, Genre> normalizedGenres = fetchNormalizedGenres();
@@ -206,43 +256,54 @@ public class MovieExplorationSPARQLService {
     }
 
 
+    /**
+     * Récupère tous les genres existants dans DBpedia et construit
+     * une base de genres normalisés (premier mot) initialisés à 0.
+     *
+     * @return map <genre normalisé, objet Genre>
+     */
+    public Map<String, Genre> fetchNormalizedGenres() {
+        String dboQuery = """
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
-        public Map<String, Genre> fetchNormalizedGenres() {
-            String dboQuery = """
-                PREFIX dbo: <http://dbpedia.org/ontology/>
-                PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            SELECT DISTINCT ?genre ?genreLabel ?firstWord
+            WHERE {
+                ?movie a dbo:Film .
+                ?movie dbo:genre ?genre .
 
-                SELECT DISTINCT ?genre ?genreLabel ?firstWord
-                WHERE {
-                    ?movie a dbo:Film .
-                    ?movie dbo:genre ?genre .
+                OPTIONAL { ?genre rdfs:label ?genreLabel . FILTER(LANG(?genreLabel) = "en") }
 
-                    OPTIONAL { ?genre rdfs:label ?genreLabel . FILTER(LANG(?genreLabel) = "en") }
+                BIND(
+                    IF(BOUND(?genreLabel), STR(?genreLabel), STR(?genre)) AS ?rawGenre
+                )
 
-                    BIND(
-                        IF(BOUND(?genreLabel), STR(?genreLabel), STR(?genre)) AS ?rawGenre
-                    )
-
-                    BIND(REPLACE(?rawGenre, "^([^ ]+).*", "$1") AS ?firstWord)
-                }
-            """;
-
-            ResultSet results = executeSparqlQuery(dboQuery);
-            Map<String, Genre> normalizedGenres = new HashMap<>();
-
-            while (results != null && results.hasNext()) {
-                QuerySolution sol = results.nextSolution();
-                String firstWord = sol.get("firstWord").asLiteral().getString();
-                String rawGenre = sol.contains("genreLabel") ? sol.get("genreLabel").asLiteral().getString() : sol.get("genre").toString();
-                normalizedGenres.put(firstWord, new Genre(firstWord, 0, new ArrayList<>(List.of(rawGenre))));
+                BIND(REPLACE(?rawGenre, "^([^ ]+).*", "$1") AS ?firstWord)
             }
+        """;
 
-            return normalizedGenres;
+        ResultSet results = executeSparqlQuery(dboQuery);
+        Map<String, Genre> normalizedGenres = new HashMap<>();
+
+        while (results != null && results.hasNext()) {
+            QuerySolution sol = results.nextSolution();
+            String firstWord = sol.get("firstWord").asLiteral().getString();
+            String rawGenre = sol.contains("genreLabel") ? sol.get("genreLabel").asLiteral().getString() : sol.get("genre").toString();
+            normalizedGenres.put(firstWord, new Genre(firstWord, 0, new ArrayList<>(List.of(rawGenre))));
         }
+
+        return normalizedGenres;
+    }
 
 
    
-
+    /**
+     * Construit la requête SPARQL qui compte le nombre de films par genre
+     * pour une année donnée.
+     *
+     * @param year année recherchée
+     * @return requête SPARQL complète
+     */
     private String buildGenreDistributionQuery(String year) {
         return String.format("""
             PREFIX dbo: <http://dbpedia.org/ontology/>
@@ -279,31 +340,30 @@ public class MovieExplorationSPARQLService {
     }
     
 
-
+    /**
+     * Compte le nombre total de films sortis une année donnée.
+     * Utile pour calculer des proportions ou statistiques globales.
+     *
+     * @param year année recherchée
+     * @return nombre total de films
+     */
     public int countMoviesByYear(String year) {
-    String query = String.format("""
-        PREFIX dbo: <http://dbpedia.org/ontology/>
-        SELECT (COUNT(DISTINCT ?movie) AS ?total)
-        WHERE {
-            ?movie a dbo:Film .
-            ?movie dbo:description ?desc .
-            FILTER(REGEX(?desc, "^%s"))
+        String query = String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            SELECT (COUNT(DISTINCT ?movie) AS ?total)
+            WHERE {
+                ?movie a dbo:Film .
+                ?movie dbo:description ?desc .
+                FILTER(REGEX(?desc, "^%s"))
+            }
+        """, year);
+
+        ResultSet results = executeSparqlQuery(query);
+        if(results != null && results.hasNext()) {
+            return results.nextSolution().getLiteral("total").getInt();
         }
-    """, year);
-
-    ResultSet results = executeSparqlQuery(query);
-    if(results != null && results.hasNext()) {
-        return results.nextSolution().getLiteral("total").getInt();
+        return 0;
     }
-    return 0;
-}
-
-
-
-
-
-
-
 
 
 
@@ -314,6 +374,12 @@ public class MovieExplorationSPARQLService {
 
 
     // Méthodes utilitaires
+    /**
+     * Exécute une requête SPARQL sur l’endpoint DBpedia.
+     *
+     * @param sparqlQuery requête SPARQL complète
+     * @return ResultSet contenant les résultats ou null en cas d’erreur
+     */
     private ResultSet executeSparqlQuery(String sparqlQuery) {
         try {
             QueryExecution qexec = QueryExecutionFactory.sparqlService(DBPEDIA_ENDPOINT, sparqlQuery);
@@ -325,6 +391,15 @@ public class MovieExplorationSPARQLService {
         }
     }
 
+
+    /**
+     * Récupère proprement la valeur d’une variable SPARQL.
+     * Supprime les tags de langue si présents.
+     *
+     * @param solution solution SPARQL courante
+     * @param varName nom de la variable
+     * @return valeur sous forme de chaîne ou null
+     */
     private String getStringValue(QuerySolution solution, String varName) {
         if (solution.contains(varName)) {
             String value = solution.get(varName).toString();
@@ -336,22 +411,30 @@ public class MovieExplorationSPARQLService {
         return null;
     }
 
+
+    /**
+     * Protège une chaîne contre les caractères spéciaux pour SPARQL.
+     */
     private String escapeString(String input) {
         return input.replace("\\", "\\\\")
                     .replace("\"", "\\\"")
                     .replace("'", "\\'");
     }
 
+
+    /**
+     * Tronque un texte à une longueur maximale.
+     */
     private String truncateText(String text, int maxLength) {
         if (text == null) return null;
         if (text.length() <= maxLength) return text;
         return text.substring(0, maxLength) + "...";
     }
 
-    // TODO : ajouter des methodes utilitaires de nettoyages pour les autres attributs, gross, budget... et quand il y 
-    // a une liste de valeurs avec virgule (soit changer la nature de l'attribut de Movie et consrtuire une methode qui récupère les infos entre virgule)
-    // voir le test pour comprendre l'affichage 
-   private Movie mapSolutionToMovie(QuerySolution solution) {
+    /**
+     * Transforme une solution SPARQL en objet Movie.
+     */
+    private Movie mapSolutionToMovie(QuerySolution solution) {
         Movie movie = new Movie();
         movie.setUri(getStringValue(solution, "movie"));
         movie.setTitle(getStringValue(solution, "title"));
@@ -373,20 +456,24 @@ public class MovieExplorationSPARQLService {
         return movie;
     }
 
-    private Actor mapSolutionToActor(QuerySolution sol) {
+    
+    /**
+     * Transforme une solution SPARQL en objet Actor.
+     */
+        private Actor mapSolutionToActor(QuerySolution sol) {
         Actor actor = new Actor();
         actor.setActorUri(getStringValue(sol, "actor"));
         actor.setActorName(getStringValue(sol, "actorName"));
         actor.setTopMovieUri(getStringValue(sol, "topMovie"));
         actor.setTopMovieTitle(getStringValue(sol, "topMovieTitle"));
 
-        String grossStr = getStringValue(sol, "maxGross");
-        if (grossStr != null) {
-            actor.setMaxGross(Double.parseDouble(grossStr.replaceAll("[^0-9.]", "")));
+        if (sol.contains("maxGross") && sol.get("maxGross").isLiteral()) {
+            actor.setMaxGross(sol.get("maxGross").asLiteral().getDouble());
         }
 
         return actor;
     }
+
 
 
 
