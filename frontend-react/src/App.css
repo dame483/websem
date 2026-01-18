@@ -700,3 +700,21 @@
   margin: 40px auto;
   animation: spin 1s linear infinite;
 }
+
+.budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.budget-table th,
+.budget-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.budget-table th {
+  background-color: #f5f5f7;
+  font-weight: 600;
+}

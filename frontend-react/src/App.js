@@ -208,6 +208,79 @@ function ActorsGraphVisualization({ selectedMovie, topActors, svgRef }) {
   return <svg ref={svgRef} />;
 }
 
+function GenreHistogram({ genres }) {
+  const ref = useRef();
+
+  useEffect(() => {
+    if (!genres || genres.length === 0) return;
+
+    const svg = d3.select(ref.current);
+    svg.selectAll('*').remove();
+
+    const width = 500;
+    const height = 250;
+    const margin = { top: 20, right: 20, bottom: 60, left: 40 };
+
+    const data = genres.slice(0, 10); // top 10 genres
+
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.name))
+      .range([margin.left, width - margin.right])
+      .padding(0.2);
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.count)])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    svg.attr('width', width).attr('height', height);
+
+    svg.append('g')
+      .selectAll('rect')
+      .data(data)
+      .join('rect')
+      .attr('x', d => x(d.name))
+      .attr('y', d => y(d.count))
+      .attr('height', d => y(0) - y(d.count))
+      .attr('width', x.bandwidth())
+      .attr('fill', '#4ecdc4');
+
+    svg.append('g')
+      .attr('transform', `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x))
+      .selectAll('text')
+      .attr('transform', 'rotate(-30)')
+      .style('text-anchor', 'end');
+
+    svg.append('g')
+      .attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y));
+
+  }, [genres]);
+
+  return <svg ref={ref} />;
+}
+
+function TopBudgetTable({ movies }) {
+  return (
+    <table className="budget-table">
+      <thead>
+        <tr>
+          <th>Film</th>
+          <th>Budget ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {movies.map((m, i) => (
+          <tr key={i}>
+            <td>{m.title}</td>
+            <td>{Number(m.budget).toLocaleString()}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 function App() {
   const [query, setQuery] = useState('');
@@ -220,6 +293,10 @@ function App() {
   const [recentMovies, setRecentMovies] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [topActors, setTopActors] = useState([]);
+  const [genresByYear, setGenresByYear] = useState([]);
+  const [topBudgetMovies, setTopBudgetMovies] = useState([]);
+  const [genresLoading, setGenresLoading] = useState(false);
+  const [budgetLoading, setBudgetLoading] = useState(false);
 
   const svgRef = useRef(null);
   const svgRefActors = useRef(null);
@@ -363,36 +440,76 @@ function App() {
     setShowModal(true);
     setModalLoading(true);
 
+    setRecentMovies([]);
+    setTopActors([]);
+    setGenresByYear([]);
+    setTopBudgetMovies([]);
+
     try {
       let directorUri = movie.directorUri;
       if (!directorUri.startsWith('http')) {
-      directorUri = `http://dbpedia.org/resource/${movie.directorUri.replace(/ /g, '_')}`;
+        directorUri = `http://dbpedia.org/resource/${movie.directorUri.replace(/ /g, '_')}`;
       }
 
-      const encodedUri = encodeURIComponent(directorUri);
+      const encodedDirectorUri = encodeURIComponent(directorUri);
       const encodedMovieUri = encodeURIComponent(movie.uri);
 
-      const [directorsResponse, actorsResponse] = await Promise.all([
-        axios.get(
-          `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedUri}&limit=10`
-        ),
-        axios.get(
-          `http://localhost:8080/api/movies/top-actors-by-movie?movieUri=${encodedMovieUri}`
-        )
-      ]);
+      console.log('URL:', `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedDirectorUri}&limit=10`); //test
+
+      const directorsResponse = await axios.get(
+        `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedDirectorUri}&limit=10`
+      );
       
+      const  actorsResponse = await axios.get(
+        `http://localhost:8080/api/movies/top-actors-by-movie?movieUri=${encodedMovieUri}`,
+      );
+
       setRecentMovies(directorsResponse.data);
       setTopActors(actorsResponse.data);
-      console.log('Acteurs:', actorsResponse.data); //test
-      
+
     } catch (err) {
-      console.error(err);
+      console.error('Erreur graphes principaux', err);
       setRecentMovies([]);
       setTopActors([]);
     } finally {
       setModalLoading(false);
     }
+
+    try {
+      const releaseDate = movie.releaseDate;
+
+      if (!releaseDate) {
+        console.warn('Pas d’année de sortie pour le film');
+        return;
+      }
+
+      setGenresLoading(true);
+      setBudgetLoading(true);
+
+      const [genresResponse, budgetResponse] = await Promise.all([
+        axios.get(
+          `http://localhost:8080/api/movies/distribution-by-year`,
+          { params: { year: releaseDate } }
+        ),
+        axios.get(
+          `http://localhost:8080/api/movies/top-budget-by-year`,
+          { params: { year: releaseDate } }
+        )
+      ]);
+
+      setGenresByYear(genresResponse.data);
+      setTopBudgetMovies(budgetResponse.data);
+
+    } catch (err) {
+      console.error('Erreur stats annuelles', err);
+      setGenresByYear([]);
+      setTopBudgetMovies([]);
+    } finally {
+      setGenresLoading(false);
+      setBudgetLoading(false);
+    }
   };
+
 
   return (
     <div className="App">
@@ -788,8 +905,21 @@ function App() {
                     {topActors.length} acteur{topActors.length > 1 ? 's' : ''}
                   </p>
                 </>
-              )}
-            </div>
+                )}
+                <h3 style={{ textAlign: 'center', marginTop: '24px' }}>
+                  Répartition des genres ({selectedMovie?.releaseDate})
+                </h3>
+
+                {genresLoading ? (
+                  <div style={{ textAlign: 'center', padding: '20px' }}>
+                    <p>Chargement...</p>
+                  </div>
+                ) : genresByYear.length === 0 ? (
+                  <p style={{ textAlign: 'center' }}>Aucune donnée de genre</p>
+                ) : (
+                  <GenreHistogram genres={genresByYear} />
+                )}
+              </div>
 
             <div className="graph-right">
               <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
@@ -820,6 +950,19 @@ function App() {
                     {recentMovies.length + 1} film{recentMovies.length + 1 > 1 ? 's' : ''} au total
                   </p>
                 </>
+              )}
+              <h3 style={{ textAlign: 'center', marginTop: '24px' }}>
+                Films au plus gros budget ({selectedMovie?.releaseDate})
+              </h3>
+
+              {budgetLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p>Chargement...</p>
+                </div>
+              ) : topBudgetMovies.length === 0 ? (
+                <p style={{ textAlign: 'center' }}>Aucun budget trouvé</p>
+              ) : (
+                <TopBudgetTable movies={topBudgetMovies} />
               )}
             </div>
           </div>
