@@ -19,22 +19,16 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const width = 800;
-    const height = 600;
-
+    const width = 600;
+    const height = 400;
     svg.attr('width', width).attr('height', height);
 
     const nodes = [
-      { 
-        id: 'main', 
-        name: selectedMovie.director,
-        isMain: true 
-      },
+      { id: 'main', name: selectedMovie.director, isMain: true },
       ...recentMovies.map((m, i) => ({
         id: `movie-${i}`,
         name: m.title || extractMovieName(m.uri),
-        year: m.releaseDate,
-        isMain: false
+        year: m.releaseDate
       }))
     ];
 
@@ -51,54 +45,49 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
 
     const g = svg.append('g');
 
-    const zoom = d3.zoom()
-      .scaleExtent([0.5, 3])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
-
-    svg.call(zoom);
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.5, 3])
+        .on('zoom', e => g.attr('transform', e.transform))
+    );
 
     const link = g.append('g')
       .selectAll('line')
       .data(links)
       .join('line')
       .attr('stroke', '#999')
-      .attr('stroke-opacity', 0.6)
       .attr('stroke-width', 2);
 
     const node = g.append('g')
       .selectAll('g')
       .data(nodes)
       .join('g')
-      .call(d3.drag()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended));
+      .call(
+        d3.drag()
+          .on('start', e => {
+            if (!e.active) simulation.alphaTarget(0.3).restart();
+            e.subject.fx = e.subject.x;
+            e.subject.fy = e.subject.y;
+          })
+          .on('drag', e => {
+            e.subject.fx = e.x;
+            e.subject.fy = e.y;
+          })
+          .on('end', e => {
+            if (!e.active) simulation.alphaTarget(0);
+            e.subject.fx = null;
+            e.subject.fy = null;
+          })
+      );
 
     node.append('circle')
-      .attr('r', d => d.isMain ? 30 : 20)
-      .attr('fill', d => d.isMain ? '#ff6b6b' : '#4ecdc4')
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 2);
+      .attr('r', d => (d.isMain ? 30 : 20))
+      .attr('fill', d => (d.isMain ? '#ff6b6b' : '#4ecdc4'));
 
     node.append('text')
-      .text(d => {
-        const name = d.name.length > 20 ? d.name.substring(0, 20) + '...' : d.name;
-        return name;
-      })
-      .attr('text-anchor', 'middle')
-      .attr('dy', d => d.isMain ? -40 : -30)
-      .attr('font-size', d => d.isMain ? '14px' : '12px')
-      .attr('font-weight', d => d.isMain ? 'bold' : 'normal')
-      .attr('fill', '#333');
-
-    node.append('text')
-      .text(d => d.year ? `(${d.year})` : '')
-      .attr('text-anchor', 'middle')
-      .attr('dy', d => d.isMain ? 45 : 35)
-      .attr('font-size', '10px')
-      .attr('fill', '#666');
+      .text(d => d.name)
+      .attr('dy', -30)
+      .attr('text-anchor', 'middle');
 
     simulation.on('tick', () => {
       link
@@ -110,45 +99,115 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
       node.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
-    function dragstarted(event) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      event.subject.fx = event.subject.x;
-      event.subject.fy = event.subject.y;
-    }
-
-    function dragged(event) {
-      event.subject.fx = event.x;
-      event.subject.fy = event.y;
-    }
-
-    function dragended(event) {
-      if (!event.active) simulation.alphaTarget(0);
-      event.subject.fx = null;
-      event.subject.fy = null;
-    }
-
-    return () => {
-      simulation.stop();
-    };
-  }, [selectedMovie, recentMovies]);
+    return () => simulation.stop();
+  }, [selectedMovie, recentMovies, svgRef]);
 
   return (
     <>
-      <p style={{ color: '#666', marginBottom: '16px', fontSize: '14px', textAlign: 'center' }}>
-       Glissez-déposez les nœuds pour réorganiser.
+      <p style={{ textAlign: 'center', fontSize: 14 }}>
+        Glissez-déposez les nœuds pour réorganiser
       </p>
-      <div style={{ 
-        border: '1px solid #ddd', 
-        borderRadius: '8px', 
-        overflow: 'hidden',
-        backgroundColor: '#f9f9f9',
-        marginBottom: '16px'
-      }}>
-        <svg ref={svgRef} style={{ display: 'block' }} />
-      </div>
+      <svg ref={svgRef} />
     </>
   );
 }
+
+function ActorsGraphVisualization({ selectedMovie, topActors, svgRef }) {
+  useEffect(() => {
+    if (!selectedMovie || topActors.length === 0) return;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const width = 600;
+    const height = 400;
+    svg.attr('width', width).attr('height', height);
+
+    const nodes = [
+      {
+        id: 'movie',
+        name: selectedMovie.title || extractMovieName(selectedMovie.uri),
+        isMain: true
+      },
+      ...topActors.flatMap((a, i) => [
+        { id: `actor-${i}`, name: a.actorName, type: 'actor' },
+        { id: `film-${i}`, name: a.topMovieTitle, type: 'movie' }
+      ])
+    ];
+
+    const links = topActors.flatMap((_, i) => [
+      { source: 'movie', target: `actor-${i}` },
+      { source: `actor-${i}`, target: `film-${i}` }
+    ]);
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+      .force('charge', d3.forceManyBody().strength(-200))
+      .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const g = svg.append('g');
+
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.5, 3])
+        .on('zoom', e => g.attr('transform', e.transform))
+    );
+
+    const link = g.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', '#999');
+
+    const node = g.append('g')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .call(
+        d3.drag()
+          .on('start', e => {
+            if (!e.active) simulation.alphaTarget(0.3).restart();
+            e.subject.fx = e.subject.x;
+            e.subject.fy = e.subject.y;
+          })
+          .on('drag', e => {
+            e.subject.fx = e.x;
+            e.subject.fy = e.y;
+          })
+          .on('end', e => {
+            if (!e.active) simulation.alphaTarget(0);
+            e.subject.fx = null;
+            e.subject.fy = null;
+          })
+      );
+
+    node.append('circle')
+      .attr('r', d => (d.isMain ? 30 : 20))
+      .attr('fill', d =>
+        d.isMain ? '#ff6b6b' : d.type === 'actor' ? '#ffa500' : '#4ecdc4'
+      );
+
+    node.append('text')
+      .text(d => d.name)
+      .attr('dy', -25)
+      .attr('text-anchor', 'middle');
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    return () => simulation.stop();
+  }, [selectedMovie, topActors, svgRef]);
+
+  return <svg ref={svgRef} />;
+}
+
 
 function App() {
   const [query, setQuery] = useState('');
@@ -160,8 +219,10 @@ function App() {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [recentMovies, setRecentMovies] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [topActors, setTopActors] = useState([]);
 
   const svgRef = useRef(null);
+  const svgRefActors = useRef(null);
 
   // Filtres avancés
   const [showFilters, setShowFilters] = useState(false);
@@ -298,8 +359,6 @@ function App() {
   };
 
   const openMovieModal = async (movie) => {
-    if (!movie.directorUri) return;
-
     setSelectedMovie(movie);
     setShowModal(true);
     setModalLoading(true);
@@ -311,15 +370,25 @@ function App() {
       }
 
       const encodedUri = encodeURIComponent(directorUri);
-      const response = await axios.get(
-      `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedUri}&limit=10`
-      );
-      console.log(`http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedUri}&limit=10`); //test
-      console.log(response.data); //test
-      setRecentMovies(response.data); 
+      const encodedMovieUri = encodeURIComponent(movie.uri);
+
+      const [directorsResponse, actorsResponse] = await Promise.all([
+        axios.get(
+          `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedUri}&limit=10`
+        ),
+        axios.get(
+          `http://localhost:8080/api/movies/top-actors-by-movie?movieUri=${encodedMovieUri}`
+        )
+      ]);
+      
+      setRecentMovies(directorsResponse.data);
+      setTopActors(actorsResponse.data);
+      console.log('Acteurs:', actorsResponse.data); //test
+      
     } catch (err) {
       console.error(err);
       setRecentMovies([]);
+      setTopActors([]);
     } finally {
       setModalLoading(false);
     }
@@ -691,13 +760,35 @@ function App() {
           
           <div className="graph-split-container">
             <div className="graph-left">
-              <p style={{ 
-                textAlign: 'center', 
-                color: '#6e6e73', 
-                fontSize: '0.9375rem'
-              }}>
-                Principaux films des acteurs ayant joués dans le film
-              </p>
+              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
+                Acteurs et leurs succès
+              </h2>
+
+              {modalLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <p>Chargement...</p>
+                </div>
+              ) : topActors.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '40px' }}>
+                  Aucun acteur trouvé pour ce film
+                </p>
+              ) : (
+                <>
+                  <ActorsGraphVisualization 
+                    selectedMovie={selectedMovie}
+                    topActors={topActors}
+                    svgRef={svgRefActors}
+                  />
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#999', 
+                    textAlign: 'center',
+                    marginTop: '16px'
+                  }}>
+                    {topActors.length} acteur{topActors.length > 1 ? 's' : ''}
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="graph-right">

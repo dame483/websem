@@ -640,7 +640,7 @@
 .graph-split-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -650,7 +650,7 @@
   border-radius: 12px;
   overflow: hidden;
   background: #f9f9f9;
-  min-height: 600px;
+  min-height: 450px;
   padding: 20px;
   display: flex;
   flex-direction: column;
