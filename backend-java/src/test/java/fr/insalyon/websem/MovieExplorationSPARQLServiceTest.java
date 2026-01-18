@@ -1,6 +1,7 @@
-package fr.insalyon.websem.service;
+package fr.insalyon.websem;
 
 import fr.insalyon.websem.model.Movie;
+import fr.insalyon.websem.service.MovieExplorationSPARQLService;
 import fr.insalyon.websem.model.Genre;
 import fr.insalyon.websem.model.Actor;
 import org.junit.jupiter.api.BeforeEach;
@@ -225,6 +226,4 @@ class MovieExplorationSPARQLServiceTest {
         });
 
     }
-
-
 }

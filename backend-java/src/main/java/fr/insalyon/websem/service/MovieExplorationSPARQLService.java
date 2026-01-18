@@ -34,7 +34,6 @@ public class MovieExplorationSPARQLService {
         return movies;
     }
 
-    // Recherche de films avec filtres avancés
     public List<Movie> searchMoviesWithFilters(String title, String language, String country, 
                                                String director, String producer, String yearFrom, 
                                                String yearTo, String distributor) {
@@ -50,6 +49,7 @@ public class MovieExplorationSPARQLService {
         }
         return movies;
     }
+
 
     /**
      * Construit la requête SPARQL de recherche de films.
@@ -116,6 +116,112 @@ public class MovieExplorationSPARQLService {
         """, escapeString(movieName));
         }
 
+        private String buildAdvancedSearchQuery(String title, String language, String country, 
+                                            String director, String producer, String yearFrom, 
+                                            String yearTo, String distributor) {
+        StringBuilder filters = new StringBuilder();
+        
+        // Filtre sur le titre
+        if (title != null && !title.trim().isEmpty()) {
+            filters.append(String.format("FILTER(REGEX(?titleLabel, \"%s\", \"i\"))\n", escapeString(title)));
+        }
+        
+        // Filtre sur la langue
+        if (language != null && !language.trim().isEmpty()) {
+            filters.append(String.format("FILTER(REGEX(STR(?language), \"%s\", \"i\"))\n", escapeString(language)));
+        }
+        
+        // Filtre sur le pays
+        if (country != null && !country.trim().isEmpty()) {
+            filters.append(String.format("FILTER(REGEX(STR(?country), \"%s\", \"i\"))\n", escapeString(country)));
+        }
+        
+        // Filtre sur le réalisateur
+        if (director != null && !director.trim().isEmpty()) {
+            filters.append(String.format("FILTER(REGEX(?director, \"%s\", \"i\"))\n", escapeString(director)));
+        }
+        
+        // Filtre sur le producteur
+        if (producer != null && !producer.trim().isEmpty()) {
+            filters.append(String.format("FILTER(REGEX(?producer, \"%s\", \"i\"))\n", escapeString(producer)));
+        }
+        
+        // Filtre sur les années
+        if (yearFrom != null && !yearFrom.trim().isEmpty()) {
+            try {
+                int year = Integer.parseInt(yearFrom);
+                filters.append(String.format("FILTER(?extracted_year >= %d)\n", year));
+            } catch (Exception e) {}
+        }
+        if (yearTo != null && !yearTo.trim().isEmpty()) {
+            try {
+                int year = Integer.parseInt(yearTo);
+                filters.append(String.format("FILTER(?extracted_year <= %d)\n", year));
+            } catch (Exception e) {}
+        }
+        
+        // Filtre sur le distributeur
+        if (distributor != null && !distributor.trim().isEmpty()) {
+            filters.append(String.format("FILTER(REGEX(?distributor, \"%s\", \"i\"))\n", escapeString(distributor)));
+        }
+        
+        return String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+            SELECT ?movie 
+                   (SAMPLE(?titleLabel) AS ?title)
+                   (SAMPLE(?descriptionLabel) AS ?description)
+                   (SAMPLE(?thumbnailLabel) AS ?thumbnail)
+                   (SAMPLE(?runtimeLabel) AS ?runtime)
+                   (SAMPLE(?grossLabel) AS ?gross)
+                   (SAMPLE(?budgetLabel) AS ?budget)
+                   (MAX(?extracted_year) AS ?year)
+                   (GROUP_CONCAT(DISTINCT STR(?directorRes); separator=", ") AS ?directorUris)
+                   (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
+                   (GROUP_CONCAT(DISTINCT ?producer; separator=", ") AS ?producers)
+                   (GROUP_CONCAT(DISTINCT ?editor; separator=", ") AS ?editors)
+                   (GROUP_CONCAT(DISTINCT ?studio; separator=", ") AS ?studios)
+                   (GROUP_CONCAT(DISTINCT ?musicComposer; separator=", ") AS ?musicComposers)
+                   (GROUP_CONCAT(DISTINCT ?distributor; separator=", ") AS ?distributors)
+                   (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
+                   (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
+            WHERE {
+              ?movie a dbo:Film .
+              ?movie rdfs:label ?titleLabel .
+              FILTER(LANG(?titleLabel) = "en")
+
+              OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel) = "en") }
+               
+              OPTIONAL { 
+                  SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
+                  WHERE {
+                  ?movie dbo:description ?desc .
+                  FILTER(REGEX(?desc, "^[0-9]{4}"))
+                  }
+                  GROUP BY ?movie
+              }
+              OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director .FILTER(LANG(?director) = "en")}
+              OPTIONAL { ?movie dbo:producer ?producerRes . ?producerRes rdfs:label ?producer . FILTER(LANG(?producer) = "en") }
+              OPTIONAL { ?movie dbo:editing ?editorRes . ?editorRes rdfs:label ?editor . FILTER(LANG(?editor) = "en") }
+              OPTIONAL { ?movie dbo:studio ?studio . }
+              OPTIONAL { ?movie dbo:musicComposer ?musicComposerRes . ?musicComposerRes rdfs:label ?musicComposer . FILTER(LANG(?musicComposer) = "en") }
+              OPTIONAL { ?movie dbo:distributor ?distributorRes . ?distributorRes rdfs:label ?distributor . FILTER(LANG(?distributor) = "en") }
+              OPTIONAL { ?movie dbp:country ?country . }
+              OPTIONAL { ?movie dbp:language ?language . }
+              OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
+              OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
+              OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
+              OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
+              
+              %s
+            }
+            GROUP BY ?movie 
+            LIMIT 20
+        """, filters.toString());
+    }
 
 
     /**
@@ -468,55 +574,13 @@ public class MovieExplorationSPARQLService {
      * @return valeur sous forme de chaîne ou null
      */
     private String getStringValue(QuerySolution solution, String varName) {
-        if (solution.contains(varName)) {
-            String value = solution.get(varName).toString();
-            // Nettoyer les suffixes de type RDF (^^http://...)
-            if (value.contains("^^http")) {
-                value = value.substring(0, value.indexOf("^^http"));
-            }
-            // Nettoyer les suffixes de langue (@en, @fr, etc.)
-            // Nettoyer les suffixes de type RDF (^^http://...)
-            if (value.contains("^^http")) {
-                value = value.substring(0, value.indexOf("^^http"));
-            }
-            // Nettoyer les suffixes de langue (@en, @fr, etc.)
-            if (value.contains("@")) {
-                value = value.substring(0, value.lastIndexOf("@"));
-            }
-            
-            // Nettoyer les URIs enchâssées (ex: "Bengali, http://dbpedia.org/resource/Bengali_language")
-            // Supprimer tout ce qui ressemble à une URI DBpedia après la virgule et l'espace
-            value = value.replaceAll(", http://dbpedia\\.org/resource/[^\\s,]*", "");
-            
-            // Nettoyer les URIs pour récupérer juste le nom final (au cas où il en reste)
-            if (value.startsWith("http://dbpedia.org/resource/")) {
-                value = value.replace("http://dbpedia.org/resource/", "").replace("_", " ");
-            }
-            
-            // Nettoyer les espaces en double et les virgules mal placées
-            value = value.replaceAll(",\\s*,", ",")  // Supprimer les virgules doubles
-                    .replaceAll("^[,\\s]+|[,\\s]+$", "")  // Supprimer les virgules/espaces au début/fin
-                    .replaceAll("\\s+", " ");  // Normaliser les espaces
-            
-            return value.trim();
-            
-            // Nettoyer les URIs enchâssées (ex: "Bengali, http://dbpedia.org/resource/Bengali_language")
-            // Supprimer tout ce qui ressemble à une URI DBpedia après la virgule et l'espace
-            value = value.replaceAll(", http://dbpedia\\.org/resource/[^\\s,]*", "");
-            
-            // Nettoyer les URIs pour récupérer juste le nom final (au cas où il en reste)
-            if (value.startsWith("http://dbpedia.org/resource/")) {
-                value = value.replace("http://dbpedia.org/resource/", "").replace("_", " ");
-            }
-            
-            // Nettoyer les espaces en double et les virgules mal placées
-            value = value.replaceAll(",\\s*,", ",")  // Supprimer les virgules doubles
-                    .replaceAll("^[,\\s]+|[,\\s]+$", "")  // Supprimer les virgules/espaces au début/fin
-                    .replaceAll("\\s+", " ");  // Normaliser les espaces
-            
-            return value.trim();
+        if (!solution.contains(varName)) return null;
+
+        if (solution.get(varName).isLiteral()) {
+            return solution.getLiteral(varName).getLexicalForm();
         }
-        return null;
+
+        return solution.get(varName).toString();
     }
 
 
@@ -554,15 +618,12 @@ public class MovieExplorationSPARQLService {
         movie.setEditor(getStringValue(solution, "editors"));
         movie.setStudio(getStringValue(solution, "studios"));
         movie.setMusicComposer(getStringValue(solution, "musicComposers"));
-        movie.setRuntime(formatRuntime(getStringValue(solution, "runtime")));
-        movie.setRuntime(formatRuntime(getStringValue(solution, "runtime")));
+        movie.setRuntime(getStringValue(solution, "runtime"));
         movie.setDistributor(getStringValue(solution, "distributors"));
         movie.setCountry(getStringValue(solution, "countries"));
         movie.setLanguage(getStringValue(solution, "languages"));
-        movie.setGross(formatCurrency(getStringValue(solution, "gross")));
-        movie.setBudget(formatCurrency(getStringValue(solution, "budget")));
-        movie.setGross(formatCurrency(getStringValue(solution, "gross")));
-        movie.setBudget(formatCurrency(getStringValue(solution, "budget")));
+        movie.setGross(getStringValue(solution, "gross"));
+        movie.setBudget(getStringValue(solution, "budget"));
         movie.setThumbnail(getStringValue(solution, "thumbnail"));
         return movie;
     }
@@ -601,8 +662,4 @@ public class MovieExplorationSPARQLService {
         }
         return movie;
     }
-
-
-
-
 }
