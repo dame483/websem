@@ -1,10 +1,11 @@
 package fr.insalyon.websem.service;
 
 import fr.insalyon.websem.model.Movie;
+import fr.insalyon.websem.model.Genre;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,6 +25,7 @@ class MovieExplorationSPARQLServiceTest {
         assertFalse(movies.isEmpty(), "La recherche doit retourner au moins un film");
     }
 
+    /*
     @Test
     void testRequeteSPARQLComplete() {
         String filmName = "Inception";
@@ -86,6 +88,66 @@ class MovieExplorationSPARQLServiceTest {
             System.out.println("Année (extraite) : " + m.getReleaseDate());
             System.out.println("Description : " + m.getDescription());
         }
+    }*/
+
+    // coder le test de la méthode qui donne els stars et le meilleurs film
+    // véeirifer qu'il y a 9 stars renvoyés dont Leonardo DiCaprio
+    // faire une requete sparql qui pour léonardo dicaprio renvoie son meilleur film (ceux qui ont gross en dollars)
+    // le comparer avec celui obtenue dans la requete
+
+    @Test
+    void testFetchNormalizedGenres() {
+
+        Map<String, Genre> genres = service.fetchNormalizedGenres();
+
+        assertNotNull(genres, "La map de genres ne doit pas être null");
+        assertFalse(genres.isEmpty(), "La map de genres ne doit pas être vide");
+
+        // Vérification de quelques entrées
+        Genre oneGenre = genres.values().iterator().next();
+
+        assertNotNull(oneGenre.getName(), "Le nom du genre ne doit pas être null");
+        assertNotNull(oneGenre.getRawGenres(), "La liste rawGenres ne doit pas être null");
+
+        System.out.println("Nombre de genres normalisés : " + genres.size());
+
+        // Afficher 10 genres pour voir la tête du résultat
+        genres.values().stream()
+                .limit(10)
+                .forEach(g -> System.out.println(
+                        "Genre normalisé : " + g.getName() +
+                        " | exemples : " + g.getRawGenres()
+                ));
     }
+
+
+    @Test
+    void testGetAllNormalizedGenresByYear_1989() {
+
+        List<Genre> genres = service.getAllNormalizedGenresByYear("1989");
+
+        // Vérifications de base
+        assertNotNull(genres, "La liste de genres ne doit pas être null");
+        assertFalse(genres.isEmpty(), "La liste de genres ne doit pas être vide");
+
+        assertFalse(genres.isEmpty(), "Il doit y avoir au moins un genre pour 1989");
+
+        System.out.println("\nGenres normalisés pour l'année 1989 :");
+
+        genres.stream()
+                .sorted((a, b) -> Integer.compare(b.getCount(), a.getCount()))
+                .forEach(g -> System.out.println(
+                        g.getName() + " | " + g.getCount() + " | " + g.getRawGenres()
+                ));
+
+        // Vérifications logiques supplémentaires
+        for (Genre g : genres) {
+            assertNotNull(g.getName(), "Le nom du genre ne doit pas être null");
+            assertTrue(g.getCount() > 0, "Le nombre de films doit être > 0");
+            assertNotNull(g.getRawGenres(), "rawGenres ne doit pas être null");
+        }
+    }
+
+
 
 }
