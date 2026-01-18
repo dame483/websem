@@ -44,4 +44,15 @@ public class MovieController {
         );
         return ResponseEntity.ok(movies);
     }
+
+    @GetMapping("/recent-by-director")
+    public List<Movie> getRecentMoviesByDirector(
+            @RequestParam String directorUri,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return MovieExplorationSPARQLService.getRecentMoviesByDirector(directorUri)
+                           .stream()
+                           .limit(limit)
+                           .toList();
+    }
 }
