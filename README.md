@@ -53,7 +53,7 @@ pip freeze
 ### 5. Lancement du backend FastAPI
 
 ```bash
-fastapi dev main.py
+python -m fastapi dev app/main.py
 ```
 
 Le backend sera accessible à l’adresse :
