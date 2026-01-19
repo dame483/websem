@@ -4,8 +4,6 @@ import axios from 'axios';
 import './App.css';
 
 function extractMovieName(uri) {
-  // Extraire le nom du film depuis l'URI DBpedia
-  // http://dbpedia.org/resource/Avatar -> Avatar
   if (typeof uri === 'string') {
     return uri.split('/').pop().replace(/_/g, ' ');
   }
@@ -55,7 +53,7 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
       .selectAll('line')
       .data(links)
       .join('line')
-      .attr('stroke', '#999')
+      .attr('stroke', '#fff')
       .attr('stroke-width', 2);
 
     const node = g.append('g')
@@ -104,9 +102,6 @@ function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
 
   return (
     <>
-      <p style={{ textAlign: 'center', fontSize: 14 }}>
-        Glissez-déposez les nœuds pour réorganiser
-      </p>
       <svg ref={svgRef} />
     </>
   );
@@ -157,7 +152,8 @@ function ActorsGraphVisualization({ selectedMovie, topActors, svgRef }) {
       .selectAll('line')
       .data(links)
       .join('line')
-      .attr('stroke', '#999');
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2);
 
     const node = g.append('g')
       .selectAll('g')
@@ -250,11 +246,20 @@ function GenreHistogram({ genres }) {
       .call(d3.axisBottom(x))
       .selectAll('text')
       .attr('transform', 'rotate(-30)')
-      .style('text-anchor', 'end');
+      .style('text-anchor', 'end')
+      .style('fill', '#fff');
 
     svg.append('g')
       .attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y));
+      .call(d3.axisLeft(y))
+      .selectAll('text')
+      .style('fill', '#fff');
+
+    // Style les lignes des axes en blanc
+    svg.selectAll('.domain')
+      .style('stroke', '#fff');
+    svg.selectAll('.tick line')
+      .style('stroke', '#fff');
 
   }, [genres]);
 
@@ -553,7 +558,7 @@ function App() {
             onClick={handleClearCache}
             title="Nettoyer le cache des requêtes SPARQL"
           >
-            🗑 Vider le cache
+            Vider le cache
           </button>
         </header>
 
@@ -944,7 +949,7 @@ function App() {
                   />
                   <p style={{ 
                     fontSize: '12px', 
-                    color: '#999', 
+                    color: '#fff', 
                     textAlign: 'center',
                     marginTop: '16px'
                   }}>
@@ -989,7 +994,7 @@ function App() {
                   />
                   <p style={{ 
                     fontSize: '12px', 
-                    color: '#999', 
+                    color: '#fff', 
                     textAlign: 'center',
                     marginTop: '16px'
                   }}>

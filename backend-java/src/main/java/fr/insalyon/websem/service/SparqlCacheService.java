@@ -1,6 +1,8 @@
 package fr.insalyon.websem.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.jena.query.ResultSet;
 import org.springframework.stereotype.Service;
 
@@ -8,12 +10,18 @@ import java.io.*;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class SparqlCacheService {
     
     private static final String CACHE_DIR = "sparql-cache";
     private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    private final Cache<String, List<Map<String, Object>>> memoryCache = Caffeine.newBuilder()
+        .expireAfterWrite(24, TimeUnit.HOURS)
+        .maximumSize(1000)
+        .build();
     
     public SparqlCacheService() {
         // Créer le répertoire de cache s'il n'existe pas
@@ -55,6 +63,12 @@ public class SparqlCacheService {
      */
     public List<Map<String, Object>> getCachedResults(String sparqlQuery) {
         String queryHash = generateQueryHash(sparqlQuery);
+        
+        List<Map<String, Object>> cachedResults = memoryCache.getIfPresent(queryHash);
+        if (cachedResults != null) {
+            return cachedResults;
+        }
+        
         Path cacheFile = getCacheFilePath(queryHash);
         
         if (Files.exists(cacheFile)) {
@@ -65,6 +79,7 @@ public class SparqlCacheService {
                     cachedContent,
                     List.class
                 );
+                memoryCache.put(queryHash, results);
                 return results;
             } catch (IOException e) {
                 System.err.println("Erreur lors de la lecture du cache: " + e.getMessage());
@@ -79,6 +94,8 @@ public class SparqlCacheService {
      */
     public void cacheResults(String sparqlQuery, List<Map<String, Object>> results) {
         String queryHash = generateQueryHash(sparqlQuery);
+        memoryCache.put(queryHash, results);
+        
         Path cacheFile = getCacheFilePath(queryHash);
         
         try {
@@ -93,6 +110,7 @@ public class SparqlCacheService {
      * Vide tout le cache
      */
     public void clearCache() {
+        memoryCache.invalidateAll();
         try {
             Files.walk(Paths.get(CACHE_DIR))
                 .filter(Files::isRegularFile)

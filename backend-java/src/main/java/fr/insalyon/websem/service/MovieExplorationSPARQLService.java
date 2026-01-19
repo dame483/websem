@@ -28,14 +28,11 @@ public class MovieExplorationSPARQLService {
     public List<Movie> searchMovies(String movieName) {
         String sparqlQuery = buildSearchMovieQuery(movieName);
         
-        // Vérifier le cache d'abord
         List<Map<String, Object>> cachedResults = cacheService.getCachedResults(sparqlQuery);
         if (cachedResults != null) {
             return convertMapResultsToMovies(cachedResults);
         }
         
-        // Exécuter la requête si pas en cache
-        System.out.println("⏱ Exécution de la requête SPARQL (non cachée)...");
         long startTime = System.currentTimeMillis();
         
         ResultSet results = executeSparqlQuery(sparqlQuery);

@@ -2,10 +2,13 @@ package fr.insalyon.websem;
 
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.service.MovieExplorationSPARQLService;
+import fr.insalyon.websem.service.SparqlCacheService;
 import fr.insalyon.websem.model.Genre;
 import fr.insalyon.websem.model.Actor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import java.util.stream.IntStream;
 
 
@@ -13,13 +16,15 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@SpringBootTest
 class MovieExplorationSPARQLServiceTest {
 
+    @Autowired
     private MovieExplorationSPARQLService service;
 
     @BeforeEach
     void setUp() {
-        service = new MovieExplorationSPARQLService();
+        // Spring will inject the real service from the application context
     }
 
     @Test
