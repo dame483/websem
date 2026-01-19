@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MovieFilterRequest {
+    private String title;
     private String language;
     private String country;
     private String director;

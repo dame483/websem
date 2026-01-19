@@ -39,22 +39,41 @@ function App() {
   const handleSearch = async (e) => {
     e.preventDefault();
     
-    if (!query.trim()) {
-      setError('Veuillez entrer un nom de film');
+    // Vérifier qu'au moins un critère est renseigné
+    const hasAnyFilter = query.trim() || Object.values(filters).some(val => val.trim());
+    if (!hasAnyFilter) {
+      setError('Veuillez entrer au moins un critère de recherche (titre ou filtre)');
       return;
     }
 
     setLoading(true);
     setError(null);
     setSearched(true);
+    setMovies([]); // Effacer les résultats précédents
 
     try {
-      const response = await axios.get(`http://localhost:8080/api/movies/search`, {
-        params: { query: query }
-      });
-      setMovies(response.data);
-      if (response.data.length === 0) {
-        setError('Aucun film trouvé');
+      // Si des filtres sont remplis, utiliser la recherche avancée
+      if (Object.values(filters).some(val => val.trim())) {
+        const response = await axios.post(
+          `http://localhost:8080/api/movies/search-advanced`,
+          {
+            title: query,
+            ...filters
+          }
+        );
+        setMovies(response.data);
+        if (response.data.length === 0) {
+          setError('Aucun film trouvé avec ces critères');
+        }
+      } else {
+        // Sinon, recherche simple par titre
+        const response = await axios.get(`http://localhost:8080/api/movies/search`, {
+          params: { query: query }
+        });
+        setMovies(response.data);
+        if (response.data.length === 0) {
+          setError('Aucun film trouvé');
+        }
       }
     } catch (err) {
       setError('Erreur lors de la recherche. Vérifiez que le backend est démarré.');
@@ -67,22 +86,24 @@ function App() {
   const handleAdvancedSearch = async (e) => {
     e.preventDefault();
     
-    // Le titre est obligatoire (depuis la recherche de base)
-    if (!query.trim()) {
-      setError('Veuillez d\'abord entrer un titre de film');
+    // Vérifier qu'au moins un filtre est renseigné
+    const hasAnyFilter = query.trim() || Object.values(filters).some(val => val.trim());
+    if (!hasAnyFilter) {
+      setError('Veuillez entrer au moins un critère de recherche (titre ou filtre)');
       return;
     }
 
     setLoading(true);
     setError(null);
     setSearched(true);
+    setMovies([]); // Effacer les résultats précédents
 
     try {
       const response = await axios.post(
         `http://localhost:8080/api/movies/search-advanced`,
-        filters,
         {
-          params: { title: query }
+          title: query,
+          ...filters
         }
       );
       setMovies(response.data);
@@ -146,6 +167,17 @@ function App() {
     }
   };
 
+  const handleClearCache = async () => {
+    try {
+      await axios.delete(`http://localhost:8080/api/movies/cache/clear`);
+      setError('Cache nettoyé avec succès');
+      setTimeout(() => setError(null), 2500);
+    } catch (err) {
+      setError('Erreur lors du nettoyage du cache.');
+      console.error('Erreur:', err);
+    }
+  };
+
   const extractMovieName = (uri) => {
     if (!uri) return '';
     const parts = uri.split('/');
@@ -157,6 +189,13 @@ function App() {
       <div className="container">
         <header className="header">
           <h1>Films</h1>
+          <button 
+            className="cache-clear-button"
+            onClick={handleClearCache}
+            title="Nettoyer le cache des requêtes SPARQL"
+          >
+            🗑 Vider le cache
+          </button>
         </header>
 
         {/* Tabs */}
@@ -184,7 +223,7 @@ function App() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Entrez le nom d'un film"
+                  placeholder="Entrez le nom d'un film (optionnel)"
                   className="search-input"
                 />
                 <button type="submit" className="search-button" disabled={loading}>
@@ -207,6 +246,10 @@ function App() {
             {/* Formulaire des filtres avancés */}
             {showFilters && (
               <form onSubmit={handleAdvancedSearch} className="advanced-filter-form">
+                <div className="filter-header">
+                  <p className="filter-hint">Combinez les filtres ci-dessous pour affiner votre recherche</p>
+                </div>
+                
                 <div className="filter-grid">
                   <div className="filter-group">
                     <label htmlFor="language">Langue</label>
@@ -294,21 +337,23 @@ function App() {
                 </div>
 
                 <div className="filter-buttons">
-                  <button type="submit" className="filter-search-button" disabled={loading || !query.trim()}>
-                    {loading ? 'Recherche en cours...' : 'Affiner la recherche'}
+                  <button type="submit" className="filter-search-button" disabled={loading}>
+                    {loading ? 'Recherche en cours...' : 'Appliquer les filtres'}
                   </button>
                   <button 
                     type="button"
                     className="filter-reset-button"
-                    onClick={() => setFilters({
-                      language: '',
-                      country: '',
-                      director: '',
-                      producer: '',
-                      yearFrom: '',
-                      yearTo: '',
-                      distributor: ''
-                    })}
+                    onClick={() => {
+                      setFilters({
+                        language: '',
+                        country: '',
+                        director: '',
+                        producer: '',
+                        yearFrom: '',
+                        yearTo: '',
+                        distributor: ''
+                      });
+                    }}
                   >
                     Réinitialiser
                   </button>
@@ -431,7 +476,7 @@ function App() {
             {loading && (
               <div className="loading-container">
                 <div className="loading-spinner"></div>
-                <p>Recherche en cours sur DBpedia...</p>
+                <p className="loading-text">Recherche en cours...</p>
               </div>
             )}
           </>
