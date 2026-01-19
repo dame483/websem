@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import * as d3 from 'd3';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -11,13 +12,295 @@ function extractMovieName(uri) {
   return uri;
 }
 
+function GraphVisualization({ selectedMovie, recentMovies, svgRef }) {
+  useEffect(() => {
+    if (!selectedMovie || recentMovies.length === 0) return;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const width = 600;
+    const height = 400;
+    svg.attr('width', width).attr('height', height);
+
+    const nodes = [
+      { id: 'main', name: selectedMovie.director, isMain: true },
+      ...recentMovies.map((m, i) => ({
+        id: `movie-${i}`,
+        name: m.title || extractMovieName(m.uri),
+        year: m.releaseDate
+      }))
+    ];
+
+    const links = recentMovies.map((_, i) => ({
+      source: 'main',
+      target: `movie-${i}`
+    }));
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(150))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(60));
+
+    const g = svg.append('g');
+
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.5, 3])
+        .on('zoom', e => g.attr('transform', e.transform))
+    );
+
+    const link = g.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', '#999')
+      .attr('stroke-width', 2);
+
+    const node = g.append('g')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .call(
+        d3.drag()
+          .on('start', e => {
+            if (!e.active) simulation.alphaTarget(0.3).restart();
+            e.subject.fx = e.subject.x;
+            e.subject.fy = e.subject.y;
+          })
+          .on('drag', e => {
+            e.subject.fx = e.x;
+            e.subject.fy = e.y;
+          })
+          .on('end', e => {
+            if (!e.active) simulation.alphaTarget(0);
+            e.subject.fx = null;
+            e.subject.fy = null;
+          })
+      );
+
+    node.append('circle')
+      .attr('r', d => (d.isMain ? 30 : 20))
+      .attr('fill', d => (d.isMain ? '#ff6b6b' : '#4ecdc4'));
+
+    node.append('text')
+      .text(d => d.name)
+      .attr('dy', -30)
+      .attr('text-anchor', 'middle');
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    return () => simulation.stop();
+  }, [selectedMovie, recentMovies, svgRef]);
+
+  return (
+    <>
+      <p style={{ textAlign: 'center', fontSize: 14 }}>
+        Glissez-déposez les nœuds pour réorganiser
+      </p>
+      <svg ref={svgRef} />
+    </>
+  );
+}
+
+function ActorsGraphVisualization({ selectedMovie, topActors, svgRef }) {
+  useEffect(() => {
+    if (!selectedMovie || topActors.length === 0) return;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const width = 600;
+    const height = 400;
+    svg.attr('width', width).attr('height', height);
+
+    const nodes = [
+      {
+        id: 'movie',
+        name: selectedMovie.title || extractMovieName(selectedMovie.uri),
+        isMain: true
+      },
+      ...topActors.flatMap((a, i) => [
+        { id: `actor-${i}`, name: a.actorName, type: 'actor' },
+        { id: `film-${i}`, name: a.topMovieTitle, type: 'movie' }
+      ])
+    ];
+
+    const links = topActors.flatMap((_, i) => [
+      { source: 'movie', target: `actor-${i}` },
+      { source: `actor-${i}`, target: `film-${i}` }
+    ]);
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+      .force('charge', d3.forceManyBody().strength(-200))
+      .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const g = svg.append('g');
+
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.5, 3])
+        .on('zoom', e => g.attr('transform', e.transform))
+    );
+
+    const link = g.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', '#999');
+
+    const node = g.append('g')
+      .selectAll('g')
+      .data(nodes)
+      .join('g')
+      .call(
+        d3.drag()
+          .on('start', e => {
+            if (!e.active) simulation.alphaTarget(0.3).restart();
+            e.subject.fx = e.subject.x;
+            e.subject.fy = e.subject.y;
+          })
+          .on('drag', e => {
+            e.subject.fx = e.x;
+            e.subject.fy = e.y;
+          })
+          .on('end', e => {
+            if (!e.active) simulation.alphaTarget(0);
+            e.subject.fx = null;
+            e.subject.fy = null;
+          })
+      );
+
+    node.append('circle')
+      .attr('r', d => (d.isMain ? 30 : 20))
+      .attr('fill', d =>
+        d.isMain ? '#ff6b6b' : d.type === 'actor' ? '#ffa500' : '#4ecdc4'
+      );
+
+    node.append('text')
+      .text(d => d.name)
+      .attr('dy', -25)
+      .attr('text-anchor', 'middle');
+
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    return () => simulation.stop();
+  }, [selectedMovie, topActors, svgRef]);
+
+  return <svg ref={svgRef} />;
+}
+
+function GenreHistogram({ genres }) {
+  const ref = useRef();
+
+  useEffect(() => {
+    if (!genres || genres.length === 0) return;
+
+    const svg = d3.select(ref.current);
+    svg.selectAll('*').remove();
+
+    const width = 500;
+    const height = 250;
+    const margin = { top: 20, right: 20, bottom: 60, left: 40 };
+
+    const data = genres.slice(0, 10); // top 10 genres
+
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.name))
+      .range([margin.left, width - margin.right])
+      .padding(0.2);
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.count)])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    svg.attr('width', width).attr('height', height);
+
+    svg.append('g')
+      .selectAll('rect')
+      .data(data)
+      .join('rect')
+      .attr('x', d => x(d.name))
+      .attr('y', d => y(d.count))
+      .attr('height', d => y(0) - y(d.count))
+      .attr('width', x.bandwidth())
+      .attr('fill', '#4ecdc4');
+
+    svg.append('g')
+      .attr('transform', `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x))
+      .selectAll('text')
+      .attr('transform', 'rotate(-30)')
+      .style('text-anchor', 'end');
+
+    svg.append('g')
+      .attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y));
+
+  }, [genres]);
+
+  return <svg ref={ref} />;
+}
+
+function TopBudgetTable({ movies }) {
+  return (
+    <table className="budget-table">
+      <thead>
+        <tr>
+          <th>Film</th>
+          <th>Budget ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {movies.map((m, i) => (
+          <tr key={i}>
+            <td>{m.title}</td>
+            <td>{Number(m.budget).toLocaleString()}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function App() {
   const [query, setQuery] = useState('');
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searched, setSearched] = useState(false);
-  
+  const [showModal, setShowModal] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [recentMovies, setRecentMovies] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [topActors, setTopActors] = useState([]);
+  const [genresByYear, setGenresByYear] = useState([]);
+  const [topBudgetMovies, setTopBudgetMovies] = useState([]);
+  const [genresLoading, setGenresLoading] = useState(false);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+
+  const svgRef = useRef(null);
+  const svgRefActors = useRef(null);
+
   // Filtres avancés
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -183,6 +466,82 @@ function App() {
     const parts = uri.split('/');
     return decodeURIComponent(parts[parts.length - 1].replace(/_/g, ' '));
   };
+
+  const openMovieModal = async (movie) => {
+    setSelectedMovie(movie);
+    setShowModal(true);
+    setModalLoading(true);
+
+    setRecentMovies([]);
+    setTopActors([]);
+    setGenresByYear([]);
+    setTopBudgetMovies([]);
+
+    try {
+      let directorUri = movie.directorUri;
+      if (!directorUri.startsWith('http')) {
+        directorUri = `http://dbpedia.org/resource/${movie.directorUri.replace(/ /g, '_')}`;
+      }
+
+      const encodedDirectorUri = encodeURIComponent(directorUri);
+      const encodedMovieUri = encodeURIComponent(movie.uri);
+
+      console.log('URL:', `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedDirectorUri}&limit=10`); //test
+
+      const directorsResponse = await axios.get(
+        `http://localhost:8080/api/movies/recent-by-director?directorUri=${encodedDirectorUri}&limit=10`
+      );
+      
+      const  actorsResponse = await axios.get(
+        `http://localhost:8080/api/movies/top-actors-by-movie?movieUri=${encodedMovieUri}`,
+      );
+
+      setRecentMovies(directorsResponse.data);
+      setTopActors(actorsResponse.data);
+
+    } catch (err) {
+      console.error('Erreur graphes principaux', err);
+      setRecentMovies([]);
+      setTopActors([]);
+    } finally {
+      setModalLoading(false);
+    }
+
+    try {
+      const releaseDate = movie.releaseDate;
+
+      if (!releaseDate) {
+        console.warn('Pas d’année de sortie pour le film');
+        return;
+      }
+
+      setGenresLoading(true);
+      setBudgetLoading(true);
+
+      const [genresResponse, budgetResponse] = await Promise.all([
+        axios.get(
+          `http://localhost:8080/api/movies/distribution-by-year`,
+          { params: { year: releaseDate } }
+        ),
+        axios.get(
+          `http://localhost:8080/api/movies/top-budget-by-year`,
+          { params: { year: releaseDate } }
+        )
+      ]);
+
+      setGenresByYear(genresResponse.data);
+      setTopBudgetMovies(budgetResponse.data);
+
+    } catch (err) {
+      console.error('Erreur stats annuelles', err);
+      setGenresByYear([]);
+      setTopBudgetMovies([]);
+    } finally {
+      setGenresLoading(false);
+      setBudgetLoading(false);
+    }
+  };
+
 
   return (
     <div className="App">
@@ -375,7 +734,7 @@ function App() {
 
             <div className="movies-list">
               {movies.map((movie, index) => (
-                <div key={index} className="movie-card">
+                <div key={index} className="movie-card" onClick={() => openMovieModal(movie)}>
                   <div className="movie-content">
                     <h2 className="movie-title">{movie.title || extractMovieName(movie.uri)}</h2>
                     
@@ -546,8 +905,121 @@ function App() {
           </>
         )}
       </div>
-    </div>
-  );
+      {showModal && (
+      <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-content modal-content-wide" onClick={(e) => e.stopPropagation()}>
+          <h1 style={{ 
+            margin: '0 0 24px 0', 
+            color: '#1d1d1f', 
+            fontSize: '2rem', 
+            fontWeight: 600,
+            textAlign: 'center',
+            borderBottom: '2px solid #d2d2d7',
+            paddingBottom: '16px'
+          }}>
+            Informations complémentaires à propos du film : {selectedMovie?.title || extractMovieName(selectedMovie?.uri)}
+          </h1>
+          
+          <div className="graph-split-container">
+            <div className="graph-left">
+              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
+                Acteurs et leurs succès
+              </h2>
+
+              {modalLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <p>Chargement...</p>
+                </div>
+              ) : topActors.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '40px' }}>
+                  Aucun acteur trouvé pour ce film
+                </p>
+              ) : (
+                <>
+                  <ActorsGraphVisualization 
+                    selectedMovie={selectedMovie}
+                    topActors={topActors}
+                    svgRef={svgRefActors}
+                  />
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#999', 
+                    textAlign: 'center',
+                    marginTop: '16px'
+                  }}>
+                    {topActors.length} acteur{topActors.length > 1 ? 's' : ''}
+                  </p>
+                </>
+                )}
+                <h3 style={{ textAlign: 'center', marginTop: '24px' }}>
+                  Répartition des genres ({selectedMovie?.releaseDate})
+                </h3>
+
+                {genresLoading ? (
+                  <div style={{ textAlign: 'center', padding: '20px' }}>
+                    <p>Chargement...</p>
+                  </div>
+                ) : genresByYear.length === 0 ? (
+                  <p style={{ textAlign: 'center' }}>Aucune donnée de genre</p>
+                ) : (
+                  <GenreHistogram genres={genresByYear} />
+                )}
+              </div>
+
+            <div className="graph-right">
+              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
+                Films de {selectedMovie?.director}
+              </h2>
+
+              {modalLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                  <p>Chargement...</p>
+                </div>
+              ) : recentMovies.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '40px' }}>
+                  Aucun autre film trouvé pour ce réalisateur
+                </p>
+              ) : (
+                <>
+                  <GraphVisualization 
+                    selectedMovie={selectedMovie}
+                    recentMovies={recentMovies}
+                    svgRef={svgRef}
+                  />
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#999', 
+                    textAlign: 'center',
+                    marginTop: '16px'
+                  }}>
+                    {recentMovies.length + 1} film{recentMovies.length + 1 > 1 ? 's' : ''} au total
+                  </p>
+                </>
+              )}
+              <h3 style={{ textAlign: 'center', marginTop: '24px' }}>
+                Films au plus gros budget ({selectedMovie?.releaseDate})
+              </h3>
+
+              {budgetLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p>Chargement...</p>
+                </div>
+              ) : topBudgetMovies.length === 0 ? (
+                <p style={{ textAlign: 'center' }}>Aucun budget trouvé</p>
+              ) : (
+                <TopBudgetTable movies={topBudgetMovies} />
+              )}
+            </div>
+          </div>
+
+          <button className="close-button" onClick={() => setShowModal(false)}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    )}
+</div>
+);
 }
 
 export default App;

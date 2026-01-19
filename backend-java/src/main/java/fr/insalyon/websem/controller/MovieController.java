@@ -1,6 +1,9 @@
 package fr.insalyon.websem.controller;
 
 import fr.insalyon.websem.dto.MovieFilterRequest;
+import fr.insalyon.websem.dto.MovieFilterRequest;
+import fr.insalyon.websem.model.Actor;
+import fr.insalyon.websem.model.Genre;
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.service.MovieExplorationSPARQLService;
 import fr.insalyon.websem.service.SparqlCacheService;
@@ -62,5 +65,31 @@ public class MovieController {
         response.put("message", "Cache nettoyé avec succès");
         response.put("status", "success");
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/recent-by-director")
+    public List<Movie> getRecentMoviesByDirector(
+            @RequestParam String directorUri,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return MovieExplorationSPARQLService.getRecentMoviesByDirector(directorUri)
+                           .stream()
+                           .limit(limit)
+                           .toList();
+    }
+
+    @GetMapping("/top-actors-by-movie")
+    public List<Actor> getTopActorsByMovie(@RequestParam String movieUri) {
+        return MovieExplorationSPARQLService.getTopActorsByMovie(movieUri);
+    }
+
+    @GetMapping("/distribution-by-year")
+    public List<Genre> getGenreDistributionByYear(@RequestParam String year) {
+        return MovieExplorationSPARQLService.getAllNormalizedGenresByYear(year);
+    }
+
+    @GetMapping("/top-budget-by-year")
+    public List<Movie> getTopBudgetByYear(@RequestParam String year) {
+        return MovieExplorationSPARQLService.getTopBudgetMoviesByYear(year);
     }
 }
