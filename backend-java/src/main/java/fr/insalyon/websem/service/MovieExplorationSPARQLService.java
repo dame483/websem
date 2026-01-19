@@ -712,6 +712,27 @@ public class MovieExplorationSPARQLService {
     }
 
     /**
+     * Formate une valeur de runtime (ex: "120" en "120 min").
+     */
+    private String formatRuntime(String runtime) {
+        if (runtime == null || runtime.isEmpty()) return null;
+        return runtime + " min";
+    }
+
+    /**
+     * Formate une valeur de devise (ex: "1000000" en "$1,000,000").
+     */
+    private String formatCurrency(String currency) {
+        if (currency == null || currency.isEmpty()) return null;
+        try {
+            long value = Long.parseLong(currency);
+            return String.format("$%,d", value);
+        } catch (NumberFormatException e) {
+            return currency;
+        }
+    }
+
+    /**
      * Transforme une solution SPARQL en objet Movie.
      */
     private Movie mapSolutionToMovie(QuerySolution solution) {

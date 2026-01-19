@@ -547,7 +547,7 @@ function App() {
     <div className="App">
       <div className="container">
         <header className="header">
-          <h1>Films</h1>
+          <h1>FilmPedia</h1>
           <button 
             className="cache-clear-button"
             onClick={handleClearCache}
@@ -910,19 +910,20 @@ function App() {
         <div className="modal-content modal-content-wide" onClick={(e) => e.stopPropagation()}>
           <h1 style={{ 
             margin: '0 0 24px 0', 
-            color: '#1d1d1f', 
+            color: 'white', 
             fontSize: '2rem', 
-            fontWeight: 600,
+            fontWeight: 700,
             textAlign: 'center',
-            borderBottom: '2px solid #d2d2d7',
-            paddingBottom: '16px'
+            borderBottom: '2px solid rgba(255, 255, 255, 0.2)',
+            paddingBottom: '16px',
+            textShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
           }}>
             Informations complémentaires à propos du film : {selectedMovie?.title || extractMovieName(selectedMovie?.uri)}
           </h1>
           
           <div className="graph-split-container">
             <div className="graph-left">
-              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
+              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'white', fontWeight: 600 }}>
                 Acteurs et leurs succès
               </h2>
 
@@ -951,7 +952,7 @@ function App() {
                   </p>
                 </>
                 )}
-                <h3 style={{ textAlign: 'center', marginTop: '24px' }}>
+                <h3 style={{ textAlign: 'center', marginTop: '24px', color: 'white', fontWeight: 600 }}>
                   Répartition des genres ({selectedMovie?.releaseDate})
                 </h3>
 
@@ -967,7 +968,7 @@ function App() {
               </div>
 
             <div className="graph-right">
-              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center' }}>
+              <h2 style={{ margin: '0 0 16px 0', textAlign: 'center', color: 'white', fontWeight: 600 }}>
                 Films de {selectedMovie?.director}
               </h2>
 
@@ -996,7 +997,7 @@ function App() {
                   </p>
                 </>
               )}
-              <h3 style={{ textAlign: 'center', marginTop: '24px' }}>
+              <h3 style={{ textAlign: 'center', marginTop: '24px', color: 'white', fontWeight: 600 }}>
                 Films au plus gros budget ({selectedMovie?.releaseDate})
               </h3>
 
