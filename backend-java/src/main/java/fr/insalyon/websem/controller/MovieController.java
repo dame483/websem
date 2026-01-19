@@ -7,6 +7,7 @@ import fr.insalyon.websem.model.Genre;
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.service.MovieExplorationSPARQLService;
 import fr.insalyon.websem.service.SparqlCacheService;
+import fr.insalyon.websem.service.MovieSimilarityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,13 +26,24 @@ public class MovieController {
     @Autowired
     private SparqlCacheService cacheService;
 
+    @Autowired
+    private MovieSimilarityService MovieSimilarityService;
+
+   
+
     @GetMapping("/search")
     public ResponseEntity<List<Movie>> searchMovies(@RequestParam String query) {
+
+         System.out.println(">>> searchMovies called with query = " + query);
+
         if (query == null || query.trim().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
         
         List<Movie> movies = MovieExplorationSPARQLService.searchMovies(query);
+
+        System.out.println(" Found " + movies.size() + " movies");
+        
         return ResponseEntity.ok(movies);
     }
 
@@ -92,4 +104,31 @@ public class MovieController {
     public List<Movie> getTopBudgetByYear(@RequestParam String year) {
         return MovieExplorationSPARQLService.getTopBudgetMoviesByYear(year);
     }
+
+    @GetMapping("/similar")
+    public ResponseEntity<List<Movie>> getSimilarMovies(@RequestParam String uri, @RequestParam(defaultValue = "20") int limit
+    ) {
+        if (uri == null || uri.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        System.out.println("Received URI: " + uri);
+
+        // Récupérer le film sélectionné via son URI
+        Movie targetMovie = MovieExplorationSPARQLService.getMovieByUri(uri);
+
+        if (targetMovie == null) {
+            System.out.println(" No movie found for URI: " + uri);
+            return ResponseEntity.notFound().build();
+        }
+
+        System.out.println(" Found target movie: " + targetMovie.getTitle() + " - Release Date: " + targetMovie.getReleaseDate());
+
+        // Appel du service de similarité
+        List<Movie> similarMovies = MovieSimilarityService.getSimilarMovies(targetMovie, limit);
+
+        System.out.println(" Found " + similarMovies.size() + " similar movies");
+        return ResponseEntity.ok(similarMovies);
+    }
+
 }

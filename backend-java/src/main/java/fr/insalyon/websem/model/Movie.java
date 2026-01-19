@@ -3,6 +3,7 @@ package fr.insalyon.websem.model;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -25,5 +26,8 @@ public class Movie {
     private String distributor;
     private String gross;
     private String budget;
+
+    // Nouvel attribut pour l'étude de similarité
+    private List<String> subjects;
 
 }
