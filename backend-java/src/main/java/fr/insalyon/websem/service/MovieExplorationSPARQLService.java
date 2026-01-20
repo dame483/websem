@@ -119,7 +119,7 @@ public class MovieExplorationSPARQLService {
      */
     private String buildSearchMovieQuery(String movieName) {
         return String.format(
-        /*"""
+        """
             PREFIX dbo: <http://dbpedia.org/ontology/>
             PREFIX dbp: <http://dbpedia.org/property/>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -428,7 +428,8 @@ public class MovieExplorationSPARQLService {
             PREFIX dct: <http://purl.org/dc/terms/>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-
+             PREFIX dbp: <http://dbpedia.org/property/>
+        
             SELECT ?movie 
                 (SAMPLE(?titleLabel) AS ?title)
                 (SAMPLE(?descriptionLabel) AS ?description)
@@ -445,10 +446,16 @@ public class MovieExplorationSPARQLService {
             OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel)="en") }
             
             OPTIONAL { 
-                ?movie dbo:releaseDate ?releaseDate .
-                BIND(xsd:integer(SUBSTR(STR(?releaseDate),1,4)) AS ?extracted_year)
-                FILTER(?extracted_year >= %d && ?extracted_year < %d)
+                SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
+                WHERE {
+                    ?movie dbo:description ?desc .
+                    FILTER(REGEX(?desc, "^[0-9]{4}"))
+                    FILTER(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1")) >= %d &&
+                           xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1")) < %d)
+                }
+                GROUP BY ?movie
             }
+            
 
             OPTIONAL {
                 ?movie dct:subject ?subjectUri .
@@ -482,6 +489,8 @@ public class MovieExplorationSPARQLService {
             PREFIX dbo: <http://dbpedia.org/ontology/>
             PREFIX dct: <http://purl.org/dc/terms/>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
             SELECT ?movie
                    (SAMPLE(?titleLabel) AS ?title)
@@ -492,11 +501,21 @@ public class MovieExplorationSPARQLService {
                    (SAMPLE(?budgetLabel) AS ?budget)
                    (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
                    (GROUP_CONCAT(DISTINCT ?subjectLabel; separator=",") AS ?subjects)
+                   (MAX(?extracted_year) AS ?year)
+
             WHERE {
                 BIND(<%s> AS ?movie)
                 ?movie a dbo:Film .
                 ?movie rdfs:label ?titleLabel . FILTER(LANG(?titleLabel) = "en")
-                OPTIONAL { ?movie dbo:releaseDate ?releaseDate }
+
+                 OPTIONAL { 
+                    SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
+                    WHERE {
+                    ?movie dbo:description ?desc .
+                    FILTER(REGEX(?desc, "^[0-9]{4}"))
+                    }
+                    GROUP BY ?movie
+                }
                 OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel)="en") }
                 OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
                 OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
@@ -646,7 +665,7 @@ public class MovieExplorationSPARQLService {
         movie.setUri(getStringValue(solution, "movie"));
         movie.setTitle(getStringValue(solution, "title"));
         movie.setDescription(truncateText(getStringValue(solution, "description"), 300));
-        movie.setReleaseDate(getStringValue(solution, "releaseDate")); // année extraite
+        movie.setReleaseDate(getStringValue(solution, "year")); // année extraite
         movie.setDirector(getStringValue(solution, "directors"));
         movie.setDirectorUri(getStringValue(solution, "directorUris"));
         movie.setProducer(getStringValue(solution, "producers"));
@@ -660,6 +679,14 @@ public class MovieExplorationSPARQLService {
         movie.setGross(getStringValue(solution, "gross"));
         movie.setBudget(getStringValue(solution, "budget"));
         movie.setThumbnail(getStringValue(solution, "thumbnail"));
+
+        String subjectsStr = getStringValue(solution, "subjects");
+    if (subjectsStr != null && !subjectsStr.isEmpty()) {
+        movie.setSubjects(Arrays.asList(subjectsStr.split(",")));
+    } else {
+        movie.setSubjects(new ArrayList<>());
+    }
+    
         return movie;
     }
 
