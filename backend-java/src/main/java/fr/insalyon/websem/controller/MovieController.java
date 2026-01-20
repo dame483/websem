@@ -6,10 +6,12 @@ import fr.insalyon.websem.model.Actor;
 import fr.insalyon.websem.model.Genre;
 import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.service.MovieExplorationSPARQLService;
+import fr.insalyon.websem.service.SparqlCacheService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +21,9 @@ public class MovieController {
 
     @Autowired
     private MovieExplorationSPARQLService MovieExplorationSPARQLService;
+    
+    @Autowired
+    private SparqlCacheService cacheService;
 
     @GetMapping("/search")
     public ResponseEntity<List<Movie>> searchMovies(@RequestParam String query) {
@@ -31,13 +36,9 @@ public class MovieController {
     }
 
     @PostMapping("/search-advanced")
-    public ResponseEntity<List<Movie>> searchMoviesAdvanced(@RequestParam String title, @RequestBody MovieFilterRequest filters) {
-        if (title == null || title.trim().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        
+    public ResponseEntity<List<Movie>> searchMoviesAdvanced(@RequestBody MovieFilterRequest filters) {
         List<Movie> movies = MovieExplorationSPARQLService.searchMoviesWithFilters(
-            title,
+            filters.getTitle(),
             filters.getLanguage(),
             filters.getCountry(),
             filters.getDirector(),
@@ -47,6 +48,23 @@ public class MovieController {
             filters.getDistributor()
         );
         return ResponseEntity.ok(movies);
+    }
+    
+    @GetMapping("/cache/info")
+    public ResponseEntity<Map<String, Object>> getCacheInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("cacheSize", cacheService.getCacheSizeInMB());
+        info.put("message", "Taille du cache SPARQL");
+        return ResponseEntity.ok(info);
+    }
+    
+    @DeleteMapping("/cache/clear")
+    public ResponseEntity<Map<String, String>> clearCache() {
+        cacheService.clearCache();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Cache nettoyé avec succès");
+        response.put("status", "success");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/recent-by-director")

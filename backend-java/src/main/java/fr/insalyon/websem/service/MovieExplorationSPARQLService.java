@@ -4,6 +4,7 @@ import fr.insalyon.websem.model.Movie;
 import fr.insalyon.websem.model.Actor;
 import fr.insalyon.websem.model.Genre;
 import org.apache.jena.query.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -12,6 +13,9 @@ import java.util.*;
 public class MovieExplorationSPARQLService {
 
     private static final String DBPEDIA_ENDPOINT = "https://dbpedia.org/sparql";
+    
+    @Autowired
+    private SparqlCacheService cacheService;
 
 
     /**
@@ -23,14 +27,40 @@ public class MovieExplorationSPARQLService {
      */
     public List<Movie> searchMovies(String movieName) {
         String sparqlQuery = buildSearchMovieQuery(movieName);
+        
+        List<Map<String, Object>> cachedResults = cacheService.getCachedResults(sparqlQuery);
+        if (cachedResults != null) {
+            return convertMapResultsToMovies(cachedResults);
+        }
+        
+        long startTime = System.currentTimeMillis();
+        
         ResultSet results = executeSparqlQuery(sparqlQuery);
-
+        
         List<Movie> movies = new ArrayList<>();
+        List<Map<String, Object>> resultsToCache = new ArrayList<>();
+        
         if (results != null) {
             while (results.hasNext()) {
-                movies.add(mapSolutionToMovie(results.nextSolution()));
+                QuerySolution solution = results.nextSolution();
+                movies.add(mapSolutionToMovie(solution));
+                
+                // Stocker pour le cache
+                Map<String, Object> row = new HashMap<>();
+                for (String var : results.getResultVars()) {
+                    if (solution.contains(var)) {
+                        row.put(var, solution.get(var).toString());
+                    }
+                }
+                resultsToCache.add(row);
             }
+            
+            long duration = System.currentTimeMillis() - startTime;
+            
+            // Mettre en cache
+            cacheService.cacheResults(sparqlQuery, resultsToCache);
         }
+        
         return movies;
     }
 
@@ -39,14 +69,42 @@ public class MovieExplorationSPARQLService {
                                                String yearTo, String distributor) {
         String sparqlQuery = buildAdvancedSearchQuery(title, language, country, director, producer, 
                                                       yearFrom, yearTo, distributor);
+        
+        // Vérifier le cache d'abord
+        List<Map<String, Object>> cachedResults = cacheService.getCachedResults(sparqlQuery);
+        if (cachedResults != null) {
+            return convertMapResultsToMovies(cachedResults);
+        }
+        
+        // Exécuter la requête si pas en cache
+        long startTime = System.currentTimeMillis();
+        
         ResultSet results = executeSparqlQuery(sparqlQuery);
-
+        
         List<Movie> movies = new ArrayList<>();
+        List<Map<String, Object>> resultsToCache = new ArrayList<>();
+        
         if (results != null) {
             while (results.hasNext()) {
-                movies.add(mapSolutionToMovie(results.nextSolution()));
+                QuerySolution solution = results.nextSolution();
+                movies.add(mapSolutionToMovie(solution));
+                
+                // Stocker pour le cache
+                Map<String, Object> row = new HashMap<>();
+                for (String var : results.getResultVars()) {
+                    if (solution.contains(var)) {
+                        row.put(var, solution.get(var).toString());
+                    }
+                }
+                resultsToCache.add(row);
             }
+            
+            long duration = System.currentTimeMillis() - startTime;
+            
+            // Mettre en cache
+            cacheService.cacheResults(sparqlQuery, resultsToCache);
         }
+        
         return movies;
     }
 
@@ -563,6 +621,53 @@ public class MovieExplorationSPARQLService {
             return null;
         }
     }
+    
+    /**
+     * Convertit une List de Maps (provenant du cache) en List de Movies
+     */
+    private List<Movie> convertMapResultsToMovies(List<Map<String, Object>> results) {
+        List<Movie> movies = new ArrayList<>();
+        for (Map<String, Object> row : results) {
+            Movie movie = new Movie();
+            movie.setUri(getStringFromMap(row, "movie"));
+            movie.setTitle(getStringFromMap(row, "title"));
+            movie.setDescription(truncateText(getStringFromMap(row, "description"), 300));
+            movie.setReleaseDate(getStringFromMap(row, "year"));
+            movie.setDirector(getStringFromMap(row, "directors"));
+            movie.setDirectorUri(getStringFromMap(row, "directorUris"));
+            movie.setProducer(getStringFromMap(row, "producers"));
+            movie.setEditor(getStringFromMap(row, "editors"));
+            movie.setStudio(getStringFromMap(row, "studios"));
+            movie.setMusicComposer(getStringFromMap(row, "musicComposers"));
+            movie.setRuntime(formatRuntime(getStringFromMap(row, "runtime")));
+            movie.setDistributor(getStringFromMap(row, "distributors"));
+            movie.setCountry(getStringFromMap(row, "countries"));
+            movie.setLanguage(getStringFromMap(row, "languages"));
+            movie.setGross(formatCurrency(getStringFromMap(row, "gross")));
+            movie.setBudget(formatCurrency(getStringFromMap(row, "budget")));
+            movie.setThumbnail(getStringFromMap(row, "thumbnail"));
+            movies.add(movie);
+        }
+        return movies;
+    }
+    
+    /**
+     * Récupère une valeur String d'une Map
+     */
+    private String getStringFromMap(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) return null;
+        String strValue = value.toString();
+        // Nettoyer les suffixes de type RDF (^^http://...)
+        if (strValue.contains("^^http")) {
+            strValue = strValue.substring(0, strValue.indexOf("^^http"));
+        }
+        // Nettoyer les suffixes de langue (@en, @fr, etc.)
+        if (strValue.contains("@")) {
+            strValue = strValue.substring(0, strValue.lastIndexOf("@"));
+        }
+        return strValue.isEmpty() ? null : strValue;
+    }
 
 
     /**
@@ -601,6 +706,27 @@ public class MovieExplorationSPARQLService {
         if (text == null) return null;
         if (text.length() <= maxLength) return text;
         return text.substring(0, maxLength) + "...";
+    }
+
+    /**
+     * Formate une valeur de runtime (ex: "120" en "120 min").
+     */
+    private String formatRuntime(String runtime) {
+        if (runtime == null || runtime.isEmpty()) return null;
+        return runtime + " min";
+    }
+
+    /**
+     * Formate une valeur de devise (ex: "1000000" en "$1,000,000").
+     */
+    private String formatCurrency(String currency) {
+        if (currency == null || currency.isEmpty()) return null;
+        try {
+            long value = Long.parseLong(currency);
+            return String.format("$%,d", value);
+        } catch (NumberFormatException e) {
+            return currency;
+        }
     }
 
     /**
