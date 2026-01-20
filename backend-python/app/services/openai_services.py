@@ -14,40 +14,57 @@ def generate_sparql(sentence: str):
         messages=[
             {"role": "system", "content": """Tu es un expert en requêtes SPARQL pour DBpedia. Tu dois générer UNIQUEMENT le corps d'une requête SPARQL (la partie WHERE).
 
-IMPORTANT:
-- Génère SEULEMENT le contenu entre les accolades { ... }
-- N'inclus pas SELECT, PREFIX, ou LIMIT
-- Utilise dbo: pour les propriétés (dbo:director, dbo:starring, dbo:country, etc.)
-- Utilise dbr: pour les ressources (dbr:Christopher_Nolan, dbr:Titanic, etc.)
-- Utilise rdfs: pour les labels (rdfs:label)
-- Utilise rdf: pour les types (rdf:type)
-- Chaque ligne doit finir par un point (.)
-- OBLIGATOIRE: Ajoute un filtre de langue FILTER (lang(?label) = 'en' || lang(?label) = 'fr') pour les labels
+RÈGLES STRICTES:
+1. Génère SEULEMENT le contenu entre les accolades { ... }
+2. N'inclus JAMAIS SELECT, PREFIX, LIMIT, ou FILTER qui ne concerne pas la langue
+3. Chaque triple doit finir par un point (.)
+4. Les noms propres deviennent des ressources DBpedia avec underscores: 
+   - "Christopher Nolan" -> dbr:Christopher_Nolan
+   - "Brad Pitt" -> dbr:Brad_Pitt
+   - Remplace tous les espaces par des underscores dans les noms
 
-EXEMPLES de corps valides:
+5. Utilise les préfixes corrects:
+   - dbo: pour les propriétés (dbo:director, dbo:starring, dbo:country, dbo:birthPlace, etc.)
+   - dbr: pour les ressources (dbr:Christopher_Nolan, dbr:France, etc.)
+   - rdfs: pour les labels (rdfs:label)
+   - rdf: pour les types (rdf:type)
 
-Pour "quels films a réalisé Christopher Nolan?":
+6. TOUJOURS ajouter: FILTER (lang(?label) = 'en' || lang(?label) = 'fr') pour les labels
+
+EXEMPLES DE TRANSFORMATION:
+
+"quels sont les films réalisés par Christopher Nolan?" ->
 ?film dbo:director dbr:Christopher_Nolan .
 ?film rdfs:label ?label .
 FILTER (lang(?label) = 'en' || lang(?label) = 'fr')
 
-Pour "quels acteurs jouent dans Titanic?":
+"quels films a réalisé Christopher Nolan?" ->
+?film dbo:director dbr:Christopher_Nolan .
+?film rdfs:label ?label .
+FILTER (lang(?label) = 'en' || lang(?label) = 'fr')
+
+"films avec Brad Pitt" ->
+?film dbo:starring dbr:Brad_Pitt .
+?film rdfs:label ?label .
+FILTER (lang(?label) = 'en' || lang(?label) = 'fr')
+
+"acteurs de Titanic" ->
 dbr:Titanic dbo:starring ?actor .
 ?actor rdfs:label ?label .
 FILTER (lang(?label) = 'en' || lang(?label) = 'fr')
 
-Pour "quels films sont de type Film?":
-?film rdf:type dbo:Film .
+"films français" ->
+?film dbo:country dbr:France .
 ?film rdfs:label ?label .
 FILTER (lang(?label) = 'en' || lang(?label) = 'fr')
 
-Pour "donne-moi les villes françaises":
+"villes en France" ->
 ?ville rdf:type dbo:City .
 ?ville dbo:country dbr:France .
 ?ville rdfs:label ?label .
 FILTER (lang(?label) = 'en' || lang(?label) = 'fr')
 
-Tu dois répondre UNIQUEMENT avec le corps, chaque ligne doit finir par un point. Pas de SELECT, pas de PREFIX, pas d'explication."""},
+IMPORTANT: Réponds UNIQUEMENT avec le WHERE body, pas d'explications, pas de SELECT, pas de PREFIX."""},
             {"role": "user", "content": sentence}
         ],
         temperature=0
@@ -60,7 +77,10 @@ def generate_answer(sentence: str):
     response = client.chat.completions.create(
         model = "llama3:70b",
         messages=[
-        {"role": "system", "content": "Tu es un assistant cinématographique expert. Réponds aux questions sur les films de manière concise et informative en utilisant ta base de connaissances."},
+        {"role": "system", "content": """Tu es un assistant cinématographique expert. Réponds aux questions sur les films de manière concise et informative en utilisant ta base de connaissances. 
+
+Si la question demande une liste (quels films, quels acteurs, etc.), format ta réponse comme une liste à puces.
+Sois précis et utilise tes connaissances actualisées."""},
         {"role": "user", "content": sentence}
     ],
         temperature=0.7

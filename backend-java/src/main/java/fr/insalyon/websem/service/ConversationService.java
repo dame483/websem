@@ -1,6 +1,7 @@
 package fr.insalyon.websem.service;
 
 import fr.insalyon.websem.dto.ConversationResponse;
+import fr.insalyon.websem.dto.SparqlTranslationResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -23,7 +24,30 @@ public class ConversationService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final String DBPEDIA_ENDPOINT = "https://dbpedia.org/sparql";
 
-    public ConversationResponse processQuestion(String question) {
+    /**
+     * Mode Conversation - Répond avec l'IA sans SPARQL
+     */
+    public ConversationResponse generateAIAnswer(String question) {
+        ConversationResponse response = new ConversationResponse();
+        response.setQuestion(question);
+
+        try {
+            String aiAnswer = callPythonBackendForAnswer(question);
+            response.setAiAnswer(aiAnswer);
+            response.setResults(new ArrayList<>());
+        } catch (Exception e) {
+            response.setError("Erreur lors de la génération de la réponse : " + e.getMessage());
+            System.err.println("Erreur : " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return response;
+    }
+
+    /**
+     * Mode Requête DBpedia - Traduit NL en SPARQL, exécute et retourne résultats ou fallback IA
+     */
+    public ConversationResponse queryDBpedia(String question) {
         ConversationResponse response = new ConversationResponse();
         response.setQuestion(question);
 
@@ -35,7 +59,7 @@ public class ConversationService {
                 List<Map<String, String>> results = executeSparqlQuery(sparqlQuery);
                 
                 if (results.isEmpty()) {
-                    String aiAnswer = generateAIAnswer(question);
+                    String aiAnswer = callPythonBackendForAnswer(question);
                     response.setResults(new ArrayList<>());
                     response.setAiAnswer(aiAnswer);
                 } else {
@@ -43,7 +67,7 @@ public class ConversationService {
                 }
             } catch (Exception sparqlException) {
                 System.err.println("Requête SPARQL invalide, utilisation du fallback IA: " + sparqlException.getMessage());
-                String aiAnswer = generateAIAnswer(question);
+                String aiAnswer = callPythonBackendForAnswer(question);
                 response.setResults(new ArrayList<>()); 
                 response.setAiAnswer(aiAnswer);
             }
@@ -54,6 +78,49 @@ public class ConversationService {
         }
 
         return response;
+    }
+
+    /**
+     * Mode Traduction - Traduit NL en SPARQL sans exécuter
+     */
+    public SparqlTranslationResponse translateToSparql(String question) {
+        SparqlTranslationResponse response = new SparqlTranslationResponse();
+        response.setQuestion(question);
+
+        try {
+            String sparqlQuery = callPythonBackend(question);
+            response.setSparqlQuery(sparqlQuery);
+        } catch (Exception e) {
+            response.setError("Erreur lors de la génération de la requête SPARQL : " + e.getMessage());
+            System.err.println("Erreur : " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return response;
+    }
+
+    private String callPythonBackendForAnswer(String question) throws Exception {
+        String url = pythonBackendUrl + "/api/sparql/answer";
+
+        String payload = "{\"sentence\": \"" + escapeJson(question) + "\"}";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            JsonNode rootNode = objectMapper.readTree(response.getBody());
+            if (rootNode.has("answer")) {
+                return rootNode.get("answer").asText();
+            } else {
+                throw new Exception("Format de réponse inattendu du backend Python");
+            }
+        } else {
+            throw new Exception("Le backend Python a retourné une erreur : " + response.getStatusCode());
+        }
     }
 
     private String callPythonBackend(String question) throws Exception {
@@ -205,26 +272,6 @@ private List<Map<String, String>> executeSparqlQuery(String sparqlQuery) throws 
     return results;
 }
 
-    private String generateAIAnswer(String question) throws Exception {
-        String url = pythonBackendUrl + "/api/sparql/answer";
-        
-        Map<String, String> request = new HashMap<>();
-        request.put("sentence", question);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(request), headers);
-
-        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            JsonNode rootNode = objectMapper.readTree(response.getBody());
-            if (rootNode.has("answer")) {
-                return rootNode.get("answer").asText();
-            }
-        }
-        return "Je n'ai pas pu générer une réponse à votre question.";
-    }
 
     private String escapeJson(String input) {
         if (input == null) {
