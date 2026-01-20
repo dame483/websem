@@ -730,6 +730,52 @@ public class MovieExplorationSPARQLService {
     }
 
     /**
+     * Nettoie une URI pour n'afficher que le label
+     */
+    private String cleanUri(String value) {
+        if (value == null) return null;
+        
+        if (value.contains("dbpedia.org/resource/")) {
+            String label = value.substring(value.lastIndexOf("/") + 1);
+            label = label.replace("_", " ");
+            try {
+                label = java.net.URLDecoder.decode(label, "UTF-8");
+            } catch (Exception e) {
+                // Ignorer les erreurs de décodage
+            }
+            return label;
+        }
+        
+        if (value.contains("/resource/") || value.contains("/entity/")) {
+            return value.substring(value.lastIndexOf("/") + 1);
+        }
+        
+        return value;
+    }
+
+    /**
+     * Nettoie une liste de valeurs séparées par des virgules, en supprimant les URIs.
+     */
+    private String cleanValues(String value) {
+        if (value == null) return null;
+        
+        // Diviser par virgule et nettoyer chaque part
+        String[] parts = value.split(",");
+        StringBuilder result = new StringBuilder();
+        
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i].trim();
+            String cleaned = cleanUri(part);
+            if (result.length() > 0) {
+                result.append(", ");
+            }
+            result.append(cleaned);
+        }
+        
+        return result.toString();
+    }
+
+    /**
      * Transforme une solution SPARQL en objet Movie.
      */
     private Movie mapSolutionToMovie(QuerySolution solution) {
@@ -746,8 +792,8 @@ public class MovieExplorationSPARQLService {
         movie.setMusicComposer(getStringValue(solution, "musicComposers"));
         movie.setRuntime(getStringValue(solution, "runtime"));
         movie.setDistributor(getStringValue(solution, "distributors"));
-        movie.setCountry(getStringValue(solution, "countries"));
-        movie.setLanguage(getStringValue(solution, "languages"));
+        movie.setCountry(cleanValues(getStringValue(solution, "countries")));
+        movie.setLanguage(cleanValues(getStringValue(solution, "languages")));
         movie.setGross(getStringValue(solution, "gross"));
         movie.setBudget(getStringValue(solution, "budget"));
         movie.setThumbnail(getStringValue(solution, "thumbnail"));
