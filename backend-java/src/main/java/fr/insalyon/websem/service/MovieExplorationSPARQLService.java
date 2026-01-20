@@ -123,6 +123,7 @@ public class MovieExplorationSPARQLService {
             PREFIX dbp: <http://dbpedia.org/property/>
             PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            PREFIX dct: <http://purl.org/dc/terms/>
 
             SELECT ?movie 
                 (SAMPLE(?titleLabel) AS ?title)
@@ -141,6 +142,8 @@ public class MovieExplorationSPARQLService {
                 (GROUP_CONCAT(DISTINCT ?distributor; separator=", ") AS ?distributors)
                 (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
                 (GROUP_CONCAT(DISTINCT ?language; separator=", ") AS ?languages)
+                (GROUP_CONCAT(DISTINCT ?subjectLabel; separator=",") AS ?subjects)
+
             WHERE {
             # Filtrer les films d'abord (le plus tôt possible)
             ?movie a dbo:Film .
@@ -168,6 +171,11 @@ public class MovieExplorationSPARQLService {
             OPTIONAL { ?movie dbo:gross ?grossLabel . FILTER(DATATYPE(?grossLabel) = <http://dbpedia.org/datatype/usDollar>) }
             OPTIONAL { ?movie dbo:budget ?budgetLabel . FILTER(DATATYPE(?budgetLabel) = <http://dbpedia.org/datatype/usDollar>) }
             OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
+            OPTIONAL {
+                    ?movie dct:subject ?subjectUri .
+                    ?subjectUri rdfs:label ?subjectLabel .
+                    FILTER(LANG(?subjectLabel)="en")
+                }
             }
             GROUP BY ?movie 
             LIMIT 20
@@ -401,6 +409,9 @@ public class MovieExplorationSPARQLService {
     }
 
 
+    
+
+
 
     /**
      * Récupère la distribution des genres normalisés pour une année donnée.
@@ -563,6 +574,132 @@ public class MovieExplorationSPARQLService {
         }
         return movies;
     }
+
+        // Distribution des genres (camembert)
+
+    // Top films par budget
+
+    // liste film pour recherche de similarité
+    // Films sortis dans une décennie
+    public List<Movie> getMoviesByDecade(int startYear, int endYear) {
+        String sparqlQuery = buildMoviesByDecadeQuery(startYear, endYear);
+        ResultSet results = executeSparqlQuery(sparqlQuery);
+
+        List<Movie> movies = new ArrayList<>();
+        if (results != null) {
+            while (results.hasNext()) {
+                movies.add(mapSolutionToMovie(results.nextSolution()));
+            }
+        }
+        return movies;
+    }
+
+    private String buildMoviesByDecadeQuery(int startYear, int endYear) {
+        return String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dct: <http://purl.org/dc/terms/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+             PREFIX dbp: <http://dbpedia.org/property/>
+        
+            SELECT ?movie 
+                (SAMPLE(?titleLabel) AS ?title)
+                (SAMPLE(?descriptionLabel) AS ?description)
+                (SAMPLE(?thumbnailLabel) AS ?thumbnail)
+                (MAX(?extracted_year) AS ?year)
+                (GROUP_CONCAT(DISTINCT ?subjectLabel; separator=",") AS ?subjects)
+            WHERE {
+            ?movie a dbo:Film .
+            ?movie rdfs:label ?titleLabel .
+            FILTER(LANG(?titleLabel) = "en")
+
+            OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
+            
+            OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel)="en") }
+            
+            OPTIONAL { 
+                SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
+                WHERE {
+                    ?movie dbo:description ?desc .
+                    FILTER(REGEX(?desc, "^[0-9]{4}"))
+                    FILTER(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1")) >= %d &&
+                           xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1")) < %d)
+                }
+                GROUP BY ?movie
+            }
+            
+
+            OPTIONAL {
+                ?movie dct:subject ?subjectUri .
+                ?subjectUri rdfs:label ?subjectLabel .
+                FILTER(LANG(?subjectLabel)="en")
+            }
+            }
+            GROUP BY ?movie
+            ORDER BY DESC(?year)
+            LIMIT 100
+        """, startYear, endYear);
+        }
+
+    // Récupérer un film par son URI
+    public Movie getMovieByUri(String uri) {
+        System.out.println(" getMovieByUri called with URI: " + uri);
+        String sparqlQuery = buildMovieByUriQuery(uri);
+        System.out.println("SPARQL Query: " + sparqlQuery);
+        ResultSet results = executeSparqlQuery(sparqlQuery);
+
+        if (results != null && results.hasNext()) {
+            System.out.println(" Film trouvé!");
+            return mapSolutionToMovie(results.nextSolution());
+        }
+        System.out.println(" Film non trouvé");
+        return null;
+    }
+
+    private String buildMovieByUriQuery(String uri) {
+        return String.format("""
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            PREFIX dct: <http://purl.org/dc/terms/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX dbp: <http://dbpedia.org/property/>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+            SELECT ?movie
+                   (SAMPLE(?titleLabel) AS ?title)
+                   (SAMPLE(?descriptionLabel) AS ?description)
+                   (SAMPLE(?thumbnailLabel) AS ?thumbnail)
+                   (SAMPLE(?runtimeLabel) AS ?runtime)
+                   (SAMPLE(?grossLabel) AS ?gross)
+                   (SAMPLE(?budgetLabel) AS ?budget)
+                   (GROUP_CONCAT(DISTINCT ?director; separator=", ") AS ?directors)
+                   (GROUP_CONCAT(DISTINCT ?subjectLabel; separator=",") AS ?subjects)
+                   (MAX(?extracted_year) AS ?year)
+
+            WHERE {
+                BIND(<%s> AS ?movie)
+                ?movie a dbo:Film .
+                ?movie rdfs:label ?titleLabel . FILTER(LANG(?titleLabel) = "en")
+
+                 OPTIONAL { 
+                    SELECT ?movie (MAX(xsd:integer(REPLACE(STR(?desc), "^([0-9]{4}).*", "$1"))) AS ?extracted_year)
+                    WHERE {
+                    ?movie dbo:description ?desc .
+                    FILTER(REGEX(?desc, "^[0-9]{4}"))
+                    }
+                    GROUP BY ?movie
+                }
+                OPTIONAL { ?movie dbo:description ?descriptionLabel . FILTER(LANG(?descriptionLabel)="en") }
+                OPTIONAL { ?movie dbo:director ?directorRes . ?directorRes rdfs:label ?director . FILTER(LANG(?director) = "en") }
+                OPTIONAL { ?movie dbo:thumbnail ?thumbnailLabel }
+                OPTIONAL { ?movie dbo:runtime ?runtimeLabel . }
+                OPTIONAL { ?movie dbo:gross ?grossLabel . }
+                OPTIONAL { ?movie dbo:budget ?budgetLabel . }
+                OPTIONAL { ?movie dct:subject ?subject . ?subject rdfs:label ?subjectLabel . FILTER(LANG(?subjectLabel)="en") }
+            }
+            GROUP BY ?movie
+        """, uri);
+    }
+
 
     /**
      * Construit la requête SPARQL pour récupérer les 10 films à plus gros budget d’une année donnée.
@@ -797,8 +934,15 @@ public class MovieExplorationSPARQLService {
         movie.setGross(getStringValue(solution, "gross"));
         movie.setBudget(getStringValue(solution, "budget"));
         movie.setThumbnail(getStringValue(solution, "thumbnail"));
-        return movie;
-    }
+
+         String subjectsStr = getStringValue(solution, "subjects");
+        if (subjectsStr != null && !subjectsStr.isEmpty()) {
+            movie.setSubjects(Arrays.asList(subjectsStr.split(",")));
+        } else {
+            movie.setSubjects(new ArrayList<>());
+        }
+            return movie;
+        }
 
     
     /**
