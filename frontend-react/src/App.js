@@ -335,12 +335,38 @@ function App() {
   const [dbpediaLoading, setDbpediaLoading] = useState(false);
   const [dbpediaSparql, setDbpediaSparql] = useState('');
 
-  // Etats pour films similaires
+   // États pour films similaires
   const [similarMovies, setSimilarMovies] = useState([]);
   const [similarLoading, setSimilarLoading] = useState(false);
+ 
 
-  const handleSearch = async (e) => {
+  // Fonction pour récupérer films similaires
+  const fetchSimilarMovies = async (movie) => {
+    if (!movie.uri) return;
+
+    setSimilarLoading(true);
+    setSimilarMovies([]);
+    setError(null);
+
+    try {
+      const response = await axios.get(`http://localhost:8080/api/movies/similar`, {
+        params: { uri: movie.uri }
+      });
+      setSimilarMovies(response.data);
+      if (response.data.length === 0) {
+        setError('Aucun film similaire trouvé');
+      }
+    } catch (err) {
+      console.error('Erreur lors de la récupération des films similaires:', err);
+      setError('Erreur lors de la récupération des films similaires');
+    } finally {
+      setSimilarLoading(false);
+    }
+  };
+
+   const handleSearch = async (e) => {
     e.preventDefault();
+
     
     // Vérifier qu'au moins un critère est renseigné
     const hasAnyFilter = query.trim() || Object.values(filters).some(val => val.trim());
@@ -559,31 +585,6 @@ function App() {
       console.error('Erreur:', err);
     }
   };
-
-  // Fonction pour récupérer films similaires
-  const fetchSimilarMovies = async (movie) => {
-    if (!movie.uri) return;
-
-    setSimilarLoading(true);
-    setError(null);
-    setSimilarMovies([]);
-
-    try {
-      const response = await axios.get(`http://localhost:8080/api/movies/similar`, {
-        params: { uri: movie.uri }
-      });
-      setSimilarMovies(response.data);
-      if (response.data.length === 0) {
-        setError('Aucun film similaire trouvé');
-      }
-    } catch (err) {
-      console.error('Erreur lors de la récupération des films similaires:', err);
-      setError('Erreur lors de la récupération des films similaires');
-    } finally {
-      setSimilarLoading(false);
-    }
-  };
-
 
   const extractMovieName = (uri) => {
     if (!uri) return '';
@@ -963,60 +964,10 @@ function App() {
                     {movie.description && (
                       <p className="movie-description">{movie.description}</p>
                     )}
-                    <button
-                      className="similar-button"
-                      onClick={() => fetchSimilarMovies(movie)}
-                      disabled={similarLoading}
-                    >
-                      {similarLoading ? 'Chargement...' : 'Films similaires'}
-                    </button>
-
                   </div>
                 </div>
               ))}
             </div>
-
-            {similarLoading && (
-              <div className="loading-container">
-                <div className="loading-spinner"></div>
-                <p>Chargement des films similaires...</p>
-              </div>
-            )}
-
-            {similarMovies.length > 0 && (
-              <div className="similar-movies-section">
-                <h3>Films similaires</h3>
-
-                <div className="movies-list">
-                  {similarMovies.map((movie, index) => (
-                    <div key={index} className="movie-card">
-                      <div className="movie-content">
-                        <h2 className="movie-title">
-                          {movie.title || extractMovieName(movie.uri)}
-                        </h2>
-
-                        {movie.releaseDate && (
-                          <p className="movie-date">
-                            {new Date(movie.releaseDate).getFullYear()}
-                          </p>
-                        )}
-
-                        {movie.director && (
-                          <p className="movie-director">
-                            Réalisé par {movie.director}
-                          </p>
-                        )}
-
-                        {movie.abstract_ && (
-                          <p className="movie-abstract">{movie.abstract_}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
 
             {loading && (
               <div className="loading-container">
@@ -1332,6 +1283,47 @@ function App() {
               )}
             </div>
           </div>
+          <h3 style={{ textAlign: 'center', marginTop: '24px', color: 'white', fontWeight: 600 }}>
+            Films similaires
+          </h3>
+
+          {similarLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <p>Chargement...</p>
+            </div>
+          ) : similarMovies.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+            <button
+              className="close-button"
+              style={{ 
+                width: 'auto',         
+                padding: '8px 16px',  
+                fontSize: '1rem',     
+                cursor: 'pointer'      
+              }}
+              onClick={() => fetchSimilarMovies(selectedMovie)}
+            >
+              Voir les films similaires
+            </button>
+            </div>
+          ) : (
+            <div className="movies-list">
+              {similarMovies.map((movie, index) => (
+                <div key={index} className="movie-card">
+                  <div className="movie-content">
+                    <h2 className="movie-title">{movie.title || extractMovieName(movie.uri)}</h2>
+                    {movie.releaseDate && (
+                      <p className="movie-date">{movie.releaseDate}</p>
+                    )}
+                    {movie.director && (
+                      <p className="movie-director">Réalisé par {movie.director}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
 
           <button className="close-button" onClick={() => setShowModal(false)}>
             Fermer

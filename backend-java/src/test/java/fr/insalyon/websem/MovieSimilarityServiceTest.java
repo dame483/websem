@@ -1,6 +1,5 @@
 package fr.insalyon.websem.service;
 
-import fr.insalyon.websem.algorithm.CosineSimilarity;
 import fr.insalyon.websem.model.Movie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
