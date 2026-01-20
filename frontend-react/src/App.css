@@ -637,38 +637,62 @@
   cursor: not-allowed;
 }
 
-/* Results Cards */
-.conversation-results {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.75rem;
+/* Results List */
+.conversation-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
   width: 100%;
 }
 
-.result-card {
-  background: white;
-  border: 1px solid #d2d2d7;
-  border-radius: 12px;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.result-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-  border-color: #0071e3;
+.result-item {
+  border-left: 4px solid #667eea;
+  padding-left: 1rem;
 }
 
 .result-title {
-  margin: 0;
-  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
   color: #1d1d1f;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   word-break: break-word;
   line-height: 1.4;
+}
+
+.result-detail {
+  margin: 0.5rem 0;
+  color: #424245;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.result-label {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.result-description {
+  margin: 0.75rem 0 0 0;
+  color: #6e6e73;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.conversation-answer {
+  margin-top: 1rem;
+  border-left: 4px solid #667eea;
+  padding-left: 1rem;
+}
+
+.answer-text {
+  margin: 0;
+  color: #1d1d1f;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .no-results {
@@ -704,14 +728,7 @@
   margin: 0.25rem 0;
 }
 
-.ai-answer {
-  margin: 0;
-  color: #1d1d1f;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+
 
 .fallback-message {
   margin: 0;
@@ -865,4 +882,274 @@
 .budget-table th {
   background-color: #f5f5f7;
   font-weight: 600;
+}
+
+/* SPARQL Translation Styles */
+.sparql-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.sparql-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.sparql-section h2 {
+  margin: 0 0 0.5rem 0;
+  color: #1d1d1f;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.sparql-description {
+  color: #6e6e73;
+  font-size: 1rem;
+  margin: 0 0 1.5rem 0;
+}
+
+.sparql-form {
+  margin-bottom: 2rem;
+}
+
+.sparql-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sparql-textarea {
+  padding: 1rem;
+  font-size: 1rem;
+  border: 2px solid #d2d2d7;
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  resize: vertical;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.sparql-textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.translate-button {
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.translate-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.translate-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sparql-result {
+  background: #f5f5f7;
+  border-left: 4px solid #667eea;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.sparql-result h3 {
+  margin: 0 0 1rem 0;
+  color: #1d1d1f;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.sparql-code {
+  background: white;
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  padding: 1rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  overflow-x: auto;
+  color: #1d1d1f;
+  line-height: 1.6;
+  margin: 0 0 1rem 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.copy-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: white;
+  background: #667eea;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.copy-button:hover {
+  background: #764ba2;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* DBpedia Query Styles */
+.dbpedia-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.dbpedia-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dbpedia-section h2 {
+  margin: 0 0 0.5rem 0;
+  color: #1d1d1f;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.dbpedia-description {
+  color: #6e6e73;
+  font-size: 1rem;
+  margin: 0 0 1.5rem 0;
+}
+
+.dbpedia-form {
+  margin-bottom: 2rem;
+}
+
+.dbpedia-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dbpedia-textarea {
+  padding: 1rem;
+  font-size: 1rem;
+  border: 2px solid #d2d2d7;
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  resize: vertical;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.dbpedia-textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.query-button {
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.query-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.query-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sparql-info {
+  background: #f0f0f0;
+  border-left: 4px solid #667eea;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.sparql-info h3 {
+  margin: 0 0 1rem 0;
+  color: #1d1d1f;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.dbpedia-result {
+  background: #f5f5f7;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dbpedia-result h3 {
+  margin: 0 0 1rem 0;
+  color: #1d1d1f;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.dbpedia-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dbpedia-result-ai {
+  border-left: 4px solid #4ecdc4;
+}
+
+.ai-result-label {
+  margin: 0 0 1rem 0;
+  color: #6e6e73;
+  font-size: 0.9375rem;
+  font-style: italic;
+}
+
+.ai-result-text {
+  color: #1d1d1f;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+}
+
+.dbpedia-result-error {
+  border-left: 4px solid #ff6b6b;
+}
+
+.error-text {
+  color: #d32f2f;
+  font-size: 0.9375rem;
+}
+
+.empty-text {
+  color: #6e6e73;
+  font-size: 0.9375rem;
+  font-style: italic;
 }

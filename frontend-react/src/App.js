@@ -322,7 +322,18 @@ function App() {
   const [conversation, setConversation] = useState('');
   const [conversationHistory, setConversationHistory] = useState([]);
   const [conversationLoading, setConversationLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('search'); // 'search' ou 'conversation'
+  const [activeTab, setActiveTab] = useState('search'); // 'search', 'conversation', 'sparql' ou 'dbpedia'
+  
+  // État pour la traduction SPARQL
+  const [sparqlQuestion, setSparqlQuestion] = useState('');
+  const [sparqlResult, setSparqlResult] = useState('');
+  const [sparqlLoading, setSparqlLoading] = useState(false);
+
+  // État pour les requêtes DBpedia
+  const [dbpediaQuestion, setDbpediaQuestion] = useState('');
+  const [dbpediaResult, setDbpediaResult] = useState(null);
+  const [dbpediaLoading, setDbpediaLoading] = useState(false);
+  const [dbpediaSparql, setDbpediaSparql] = useState('');
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -455,6 +466,85 @@ function App() {
     }
   };
 
+  const handleSparqlTranslation = async (e) => {
+    e.preventDefault();
+    
+    if (!sparqlQuestion.trim()) {
+      return;
+    }
+
+    setSparqlLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(`http://localhost:8080/api/conversation/translate-to-sparql`, {
+        question: sparqlQuestion
+      });
+      
+      if (response.data.error) {
+        setSparqlResult(response.data.error);
+      } else {
+        setSparqlResult(response.data.sparqlQuery);
+      }
+    } catch (err) {
+      setSparqlResult('Erreur lors de la traduction: ' + (err.response?.data?.error || err.message));
+      console.error('Erreur:', err);
+    } finally {
+      setSparqlLoading(false);
+    }
+  };
+
+  const handleDBpediaQuery = async (e) => {
+    e.preventDefault();
+    
+    if (!dbpediaQuestion.trim()) {
+      return;
+    }
+
+    setDbpediaLoading(true);
+    setError(null);
+    setDbpediaResult(null);
+    setDbpediaSparql('');
+
+    try {
+      const response = await axios.post(`http://localhost:8080/api/conversation/query-dbpedia`, {
+        question: dbpediaQuestion
+      });
+      
+      setDbpediaSparql(response.data.sparqlQuery || '');
+      
+      if (response.data.error) {
+        setDbpediaResult({
+          type: 'error',
+          content: response.data.error
+        });
+      } else if (response.data.results && response.data.results.length > 0) {
+        setDbpediaResult({
+          type: 'results',
+          content: response.data.results
+        });
+      } else if (response.data.aiAnswer) {
+        setDbpediaResult({
+          type: 'ai',
+          content: response.data.aiAnswer
+        });
+      } else {
+        setDbpediaResult({
+          type: 'empty',
+          content: 'Aucun résultat trouvé'
+        });
+      }
+    } catch (err) {
+      setDbpediaResult({
+        type: 'error',
+        content: 'Erreur lors de la requête: ' + (err.response?.data?.error || err.message)
+      });
+      console.error('Erreur:', err);
+    } finally {
+      setDbpediaLoading(false);
+    }
+  };
+
   const handleClearCache = async () => {
     try {
       await axios.delete(`http://localhost:8080/api/movies/cache/clear`);
@@ -575,6 +665,18 @@ function App() {
             onClick={() => setActiveTab('conversation')}
           >
             Agent Conversationnel
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'sparql' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sparql')}
+          >
+            NLP → SPARQL
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'dbpedia' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dbpedia')}
+          >
+            Requête DBpedia
           </button>
         </div>
 
@@ -863,18 +965,22 @@ function App() {
                         {message.error ? (
                           <p className="error-text">{message.error}</p>
                         ) : message.results && message.results.length > 0 ? (
-                          <div className="conversation-results">
+                          <div className="conversation-results-list">
                             {message.results.map((result, i) => (
-                              <div key={i} className="result-card">
-                                {result.title && <p className="result-title">{result.title}</p>}
-                                {result.film && <p className="result-title">{extractMovieName(result.film)}</p>}
-                                {result.movie && <p className="result-title">{extractMovieName(result.movie)}</p>}
-                                {result.label && <p className="result-title">{result.label}</p>}
+                              <div key={i} className="result-item">
+                                <div className="result-title">{result.title || result.label || extractMovieName(result.film || result.movie)}</div>
+                                {result.director && <div className="result-detail"><span className="result-label">Réalisateur:</span> {result.director}</div>}
+                                {result.releaseDate && <div className="result-detail"><span className="result-label">Année:</span> {result.releaseDate}</div>}
+                                {result.country && <div className="result-detail"><span className="result-label">Pays:</span> {result.country}</div>}
+                                {result.language && <div className="result-detail"><span className="result-label">Langue:</span> {result.language}</div>}
+                                {result.description && <div className="result-description">{result.description}</div>}
                               </div>
                             ))}
                           </div>
                         ) : message.aiAnswer ? (
-                          <p className="ai-answer">{message.aiAnswer}</p>
+                          <div className="conversation-answer">
+                            <div className="answer-text">{message.aiAnswer}</div>
+                          </div>
                         ) : null}
                       </div>
                     )}
@@ -906,6 +1012,136 @@ function App() {
                   {error}
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* Tab: SPARQL Translation */}
+        {activeTab === 'sparql' && (
+          <>
+            <div className="sparql-container">
+              <div className="sparql-section">
+                <h2>Traduction NLP → SPARQL</h2>
+                <p className="sparql-description">Transformez une phrase en langage naturel en requête SPARQL pour DBpedia</p>
+                
+                <form onSubmit={handleSparqlTranslation} className="sparql-form">
+                  <div className="sparql-input-container">
+                    <textarea
+                      value={sparqlQuestion}
+                      onChange={(e) => setSparqlQuestion(e.target.value)}
+                      placeholder="Ex: Quels sont les films réalisés par Christopher Nolan?"
+                      className="sparql-textarea"
+                      rows="2"
+                    />
+                    <button type="submit" className="translate-button" disabled={sparqlLoading}>
+                      {sparqlLoading ? (
+                        <span className="loader"></span>
+                      ) : (
+                        'Traduire en SPARQL'
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {sparqlResult && (
+                  <div className="sparql-result">
+                    <h3>Requête SPARQL générée:</h3>
+                    <pre className="sparql-code">{sparqlResult}</pre>
+                    <button 
+                      className="copy-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(sparqlResult);
+                        alert('Requête copiée!');
+                      }}
+                    >
+                      Copier la requête
+                    </button>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="error-message">
+                    {error}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Tab: DBpedia Query */}
+        {activeTab === 'dbpedia' && (
+          <>
+            <div className="dbpedia-container">
+              <div className="dbpedia-section">
+                <h2>Requête DBpedia</h2>
+                <p className="dbpedia-description">Posez une question, elle sera traduite en SPARQL et exécutée sur DBpedia</p>
+                
+                <form onSubmit={handleDBpediaQuery} className="dbpedia-form">
+                  <div className="dbpedia-input-container">
+                    <textarea
+                      value={dbpediaQuestion}
+                      onChange={(e) => setDbpediaQuestion(e.target.value)}
+                      placeholder="Ex: Quels sont les films réalisés par Christopher Nolan?"
+                      className="dbpedia-textarea"
+                      rows="2"
+                    />
+                    <button type="submit" className="query-button" disabled={dbpediaLoading}>
+                      {dbpediaLoading ? (
+                        <span className="loader"></span>
+                      ) : (
+                        'Exécuter la requête'
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {dbpediaSparql && (
+                  <div className="sparql-info">
+                    <h3>Requête SPARQL utilisée:</h3>
+                    <pre className="sparql-code">{dbpediaSparql}</pre>
+                  </div>
+                )}
+
+                {dbpediaResult && (
+                  <div className={`dbpedia-result dbpedia-result-${dbpediaResult.type}`}>
+                    {dbpediaResult.type === 'results' && (
+                      <>
+                        <h3>Résultats DBpedia ({dbpediaResult.content.length}):</h3>
+                        <div className="dbpedia-results-list">
+                          {dbpediaResult.content.map((result, i) => (
+                            <div key={i} className="result-item">
+                              <div className="result-title">{result.title || result.label || extractMovieName(result.film || result.movie)}</div>
+                              {result.director && <div className="result-detail"><span className="result-label">Réalisateur:</span> {result.director}</div>}
+                              {result.releaseDate && <div className="result-detail"><span className="result-label">Année:</span> {result.releaseDate}</div>}
+                              {result.country && <div className="result-detail"><span className="result-label">Pays:</span> {result.country}</div>}
+                              {result.language && <div className="result-detail"><span className="result-label">Langue:</span> {result.language}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {dbpediaResult.type === 'ai' && (
+                      <>
+                        <p className="ai-result-label">DBpedia n'a pas trouvé de résultats. Voici la réponse de l'IA:</p>
+                        <div className="ai-result-text">{dbpediaResult.content}</div>
+                      </>
+                    )}
+                    {dbpediaResult.type === 'error' && (
+                      <p className="error-text">Erreur: {dbpediaResult.content}</p>
+                    )}
+                    {dbpediaResult.type === 'empty' && (
+                      <p className="empty-text">{dbpediaResult.content}</p>
+                    )}
+                  </div>
+                )}
+
+                {error && (
+                  <div className="error-message">
+                    {error}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
