@@ -338,6 +338,12 @@ function App() {
    // États pour films similaires
   const [similarMovies, setSimilarMovies] = useState([]);
   const [similarLoading, setSimilarLoading] = useState(false);
+  useEffect(() => {
+    if (selectedMovie) {
+      fetchSimilarMovies(selectedMovie);
+    }
+  }, [selectedMovie]);
+
  
 
   // Fonction pour récupérer films similaires
@@ -1287,42 +1293,64 @@ function App() {
             Films similaires
           </h3>
 
-          {similarLoading ? (
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              <p>Chargement...</p>
-            </div>
-          ) : similarMovies.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-            <button
-              className="close-button"
-              style={{ 
-                width: 'auto',         
-                padding: '8px 16px',  
-                fontSize: '1rem',     
-                cursor: 'pointer'      
-              }}
-              onClick={() => fetchSimilarMovies(selectedMovie)}
-            >
-              Voir les films similaires
-            </button>
-            </div>
-          ) : (
-            <div className="movies-list">
-              {similarMovies.map((movie, index) => (
-                <div key={index} className="movie-card">
-                  <div className="movie-content">
-                    <h2 className="movie-title">{movie.title || extractMovieName(movie.uri)}</h2>
-                    {movie.releaseDate && (
-                      <p className="movie-date">{movie.releaseDate}</p>
-                    )}
-                    {movie.director && (
-                      <p className="movie-director">Réalisé par {movie.director}</p>
-                    )}
-                  </div>
+              {similarLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p>Chargement...</p>
                 </div>
-              ))}
-            </div>
-          )}
+              ) : similarMovies.length === 0 ? (
+                <p style={{ textAlign: 'center' }}>Aucun film similaire trouvé</p>
+              ) : (
+                <div className="movies-list similar-movies-list">
+                  {similarMovies.map((movie, index) => (
+                    <div key={index} className="movie-card similar-movie-card">
+                      <div className="movie-content similar-movie-content">
+
+                        <div className="similar-movie-header">
+                          <h2 className="movie-title similar-movie-title">
+                            {movie.title || extractMovieName(movie.uri)}
+                          </h2>
+
+                          {movie.releaseDate && (
+                            <span className="movie-date similar-movie-date">
+                              {movie.releaseDate}
+                            </span>
+                          )}
+                        </div>
+
+                        {movie.director && (
+                          <p className="movie-director similar-movie-director">
+                            Réalisé par <strong>{movie.director}</strong>
+                          </p>
+                        )}
+
+                        <div className="similar-movie-meta">
+                          {movie.country && (
+                            <div className="similar-meta-item">
+                              <span className="info-label">Pays</span>
+                              <span className="info-value">{movie.country}</span>
+                            </div>
+                          )}
+
+                          {movie.language && (
+                            <div className="similar-meta-item">
+                              <span className="info-label">Langue</span>
+                              <span className="info-value">{movie.language}</span>
+                            </div>
+                          )}
+
+                          {movie.runtime && (
+                            <div className="similar-meta-item">
+                              <span className="info-label">Durée</span>
+                              <span className="info-value">{movie.runtime}</span>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
 
           <button className="close-button" onClick={() => setShowModal(false)}>
