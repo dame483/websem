@@ -575,10 +575,6 @@ public class MovieExplorationSPARQLService {
         return movies;
     }
 
-        // Distribution des genres (camembert)
-
-    // Top films par budget
-
     // liste film pour recherche de similarité
     // Films sortis dans une décennie
     public List<Movie> getMoviesByDecade(int startYear, int endYear) {

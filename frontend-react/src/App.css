@@ -1153,3 +1153,83 @@
   font-size: 0.9375rem;
   font-style: italic;
 }
+
+/* Similar Movies Styling*/
+
+
+.similar-movies-list {
+  margin-top: 1.5rem;
+}
+
+.similar-movie-card {
+  border-left: 5px solid #667eea;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+}
+
+.similar-movie-content {
+  padding: 1.75rem;
+}
+
+.similar-movie-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.similar-movie-title {
+  font-size: 1.4rem;
+  margin: 0;
+  color: #1d1d1f;
+}
+
+.similar-movie-date {
+  background: #e9edff;
+  color: #4453c7;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.similar-movie-director {
+  margin-top: 0.75rem;
+  color: #4a4a6a;
+  font-size: 0.95rem;
+}
+
+.similar-movie-director strong {
+  color: #667eea;
+}
+
+.similar-movie-meta {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.similar-meta-item {
+  background: #f3f5ff;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #667eea;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.similar-meta-item .info-label {
+  font-size: 0.65rem;
+  color: #667eea;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.similar-meta-item .info-value {
+  font-size: 0.85rem;
+  color: #1d1d1f;
+  font-weight: 500;
+}
