@@ -73,9 +73,19 @@ OPENAI_API_KEY="xxxx"
 
 ---
 
+## Lancement du backend avec Maven
+```bash
+cd backend-java
+mvn clean install
+mvn spring-boot:run
+```
+
+---
 
 ## Lancement du frontend 
 ```bash
+cd frontend-react
+npm install
 npm run start
 ```
 
@@ -115,4 +125,5 @@ docker compose up --build
 * React
 * Docker & Docker Compose
 * Linked Open Data / Web sémantique
+
 
