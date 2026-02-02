@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Genre {
-    private String name; // le genre normalisé (premier mot)
-    private int count;   // nombre de films ayant ce genre (pour dbp ou dbo)
-    private List<String> rawGenres; // optionnel : liste de labels complets associés au premier mot
+    private String name; 
+    private int count;   
+    private List<String> rawGenres;
 }
