@@ -346,7 +346,7 @@ function App() {
 
  
 
-  // Fonction pour récupérer films similaires
+  // Fonction pour récupérer films similaires dans la decenie du film sélectionné
   const fetchSimilarMovies = async (movie) => {
     if (!movie.uri) return;
 
