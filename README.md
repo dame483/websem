@@ -74,6 +74,12 @@ OPENAI_API_KEY="xxxx"
 ---
 
 
+## Lancement du frontend 
+```bash
+npm run start
+```
+
+
 ## Lancement du projet complet avec Docker (recommandé)
 
 Ce mode permet de lancer **l’ensemble du projet** (backend Java, backend Python et frontend React) en une seule commande.
@@ -109,3 +115,4 @@ docker compose up --build
 * React
 * Docker & Docker Compose
 * Linked Open Data / Web sémantique
+
